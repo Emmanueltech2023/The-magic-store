@@ -210,100 +210,100 @@ I've attached my payment screenshot below for verification. Please confirm recei
       </div>
 
       {/* --- PRODUCTION-LEVEL PAYMENT MODAL --- */}
-      <AnimatePresence>
-        {showModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setShowModal(false)}
-              className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl"
-            />
-            
-            {/* Modal Container */}
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0, y: 30 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 30 }}
-              className="bg-white rounded-[40px] max-w-2xl w-full shadow-2xl relative z-10 border border-slate-100 overflow-hidden"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-12">
-                
-                {/* --- Left Column: Order Review --- */}
-                <div className="md:col-span-5 bg-slate-50 p-8 md:p-10 border-r border-slate-100">
-                  <div className="flex items-center gap-3 mb-8">
-                    <ShieldCheck className="w-6 h-6 text-emerald-500" />
-                    <span className="text-xs font-black uppercase tracking-widest text-emerald-600">Verified Payment Hub</span>
-                  </div>
-                  
-                  <div className="text-center mb-8">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-1">Total Amount Due</p>
-                    <p className="text-4xl font-black text-slate-950 font-display">{formatPrice(total)}</p>
-                    <p className="text-xs text-slate-500 mt-1">Order ID: {orderId?.slice(-6).toUpperCase()}</p>
-                  </div>
-
-                  <div className="space-y-4 max-h-48 overflow-y-auto pr-2 no-scrollbar border-t border-slate-100 pt-6">
-                    {items.map(item => (
-                      <div key={item.id} className="flex items-center gap-3">
-                        <img src={item.image} className="w-10 h-10 rounded-lg object-cover" />
-                        <div className="flex-grow">
-                          <p className="text-xs font-bold text-slate-800 line-clamp-1">{item.name}</p>
-                          <p className="text-xs text-slate-400">{item.quantity} x {formatPrice(item.price)}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* --- Right Column: Bank Details & Action --- */}
-                <div className="md:col-span-7 p-8 md:p-10 relative">
-                  <button onClick={() => setShowModal(false)} className="absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X className="w-4 h-4"/></button>
-                  
-                  <div className="mb-10">
-                    <div className="flex items-center gap-2 text-primary font-bold text-xs mb-3 uppercase tracking-widest"><Wallet className="w-4 h-4"/> Secure Checkout</div>
-                    <h2 className="text-2xl md:text-3xl font-display font-bold text-slate-950 mb-2">Complete Transfer</h2>
-                    <p className="text-slate-500 text-sm">Please pay the total using the details below. We use a Nigerian bank for swift verification.</p>
-                  </div>
-
-                  {/* Bank Details "Card" - Premium styling */}
-                  <div className="bg-primary p-6 md:p-8 rounded-[30px] shadow-xl shadow-primary/30 space-y-0 mb-8 text-white relative overflow-hidden">
-                    {/* Decorative pattern */}
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full translate-x-16 -translate-y-16" />
-                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -translate-x-8 translate-y-8" />
-                    
-                    <CopyableField label="Bank Name" value="Magic K-Bank" />
-                    <CopyableField label="Account Number" value="0123456789" />
-                    <CopyableField label="Account Name" value="Leapforce Magic Shop Ltd" />
-                  </div>
-
-                  <div className="space-y-4 mb-8">
-                    <div className="flex items-start gap-3 p-4 bg-orange-50 rounded-2xl border border-orange-100 text-orange-800 text-xs">
-                      <Banknote className="w-5 h-5 text-orange-400 mt-0.5 shrink-0" />
-                      <div>
-                        <strong>Instructions:</strong> Use your Order ID ({orderId?.slice(-6).toUpperCase()}) as the payment reference.
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3 p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-emerald-800 text-xs">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
-                      <div>
-                        <strong>Verification:</strong> Screenshot the successful transfer. This is required to finalize your magic order.
-                      </div>
-                    </div>
-                  </div>
-
-                  <button 
-                    onClick={handleFinalWhatsAppRedirect}
-                    className="w-full py-5 bg-[#25D366] text-white rounded-full font-bold flex items-center justify-center gap-3 hover:shadow-2xl hover:shadow-green-100 transition-all active:scale-95"
-                  >
-                    Send Verification on WhatsApp
-                  </button>
-                </div>
-
+     <AnimatePresence>
+  {showModal && (
+    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
+      {/* Backdrop */}
+      <motion.div 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 1 }} 
+        exit={{ opacity: 0 }}
+        onClick={() => setShowModal(false)}
+        className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl"
+      />
+      
+      {/* Modal Container */}
+      <motion.div 
+        initial={{ y: "100%", opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: "100%", opacity: 0 }}
+        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        className="bg-white rounded-t-[40px] md:rounded-[40px] max-w-2xl w-full max-h-[95vh] md:max-h-[90vh] shadow-2xl relative z-10 border border-slate-100 overflow-y-auto no-scrollbar"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-12 h-full">
+          
+          {/* --- Left Column: Order Review --- */}
+          <div className="md:col-span-5 bg-slate-50 p-6 md:p-10 border-b md:border-b-0 md:border-r border-slate-100">
+            <div className="flex items-center justify-between md:block">
+               <div className="flex items-center gap-3 mb-0 md:mb-8">
+                <ShieldCheck className="w-5 h-5 md:w-6 md:h-6 text-emerald-500" />
+                <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-emerald-600">Verified Payment</span>
               </div>
-            </motion.div>
+              <button onClick={() => setShowModal(false)} className="md:hidden p-2 bg-slate-200/50 rounded-full"><X className="w-4 h-4 text-slate-600"/></button>
+            </div>
+            
+            <div className="text-center my-6 md:mb-8">
+              <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-1">Total Amount Due</p>
+              <p className="text-3xl md:text-4xl font-black text-slate-950 font-display">{formatPrice(total)}</p>
+              <p className="text-[10px] md:text-xs text-slate-500 mt-1">Order ID: {orderId?.slice(-6).toUpperCase()}</p>
+            </div>
+
+            {/* Item list - hidden on very small mobile if necessary, or made compact */}
+            <div className="space-y-4 max-h-32 md:max-h-48 overflow-y-auto pr-2 no-scrollbar border-t border-slate-200/50 pt-6">
+              {items.map(item => (
+                <div key={item.id} className="flex items-center gap-3">
+                  <img src={item.image} className="w-8 h-8 md:w-10 md:h-10 rounded-lg object-cover" alt="" />
+                  <div className="flex-grow">
+                    <p className="text-[11px] md:text-xs font-bold text-slate-800 line-clamp-1">{item.name}</p>
+                    <p className="text-[10px] md:text-xs text-slate-400">{item.quantity} x {formatPrice(item.price)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        )}
-      </AnimatePresence>
+
+          {/* --- Right Column: Bank Details & Action --- */}
+          <div className="md:col-span-7 p-6 md:p-10 relative bg-white">
+            <button onClick={() => setShowModal(false)} className="hidden md:flex absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X className="w-4 h-4"/></button>
+            
+            <div className="mb-6 md:mb-10">
+              <div className="flex items-center gap-2 text-primary font-bold text-[10px] md:text-xs mb-2 md:mb-3 uppercase tracking-widest"><Wallet className="w-4 h-4"/> Secure Checkout</div>
+              <h2 className="text-xl md:text-3xl font-display font-bold text-slate-950 mb-2">Complete Transfer</h2>
+              <p className="text-slate-500 text-xs md:text-sm leading-relaxed">Pay the total to the account below for swift verification.</p>
+            </div>
+
+            {/* Bank Details "Card" */}
+            <div className="bg-primary p-5 md:p-8 rounded-[24px] md:rounded-[30px] shadow-xl shadow-primary/20 space-y-3 md:space-y-4 mb-6 md:mb-8 text-white relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full translate-x-12 -translate-y-12" />
+              <CopyableField label="Bank Name" value="Magic K-Bank" />
+              <CopyableField label="Account Number" value="0123456789" />
+              <CopyableField label="Account Name" value="Leapforce Magic Shop Ltd" />
+            </div>
+
+            <div className="space-y-3 mb-6 md:mb-8">
+              <div className="flex items-start gap-3 p-3 md:p-4 bg-orange-50 rounded-2xl border border-orange-100 text-orange-800 text-[10px] md:text-xs">
+                <Banknote className="w-4 h-4 text-orange-400 mt-0.5 shrink-0" />
+                <div><strong>Ref:</strong> Use Order ID <b>{orderId?.slice(-6).toUpperCase()}</b></div>
+              </div>
+              <div className="flex items-start gap-3 p-3 md:p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-emerald-800 text-[10px] md:text-xs">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+                <div><strong>Verify:</strong> Screenshot the transfer for WhatsApp.</div>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleFinalWhatsAppRedirect}
+              className="w-full py-4 md:py-5 bg-[#25D366] text-white rounded-full text-sm md:text-base font-bold flex items-center justify-center gap-3 hover:shadow-2xl transition-all active:scale-95 mb-4 md:mb-0"
+            >
+              Send Verification on WhatsApp
+            </button>
+          </div>
+
+        </div>
+      </motion.div>
+    </div>
+  )}
+</AnimatePresence>
     </div>
   );
 };
