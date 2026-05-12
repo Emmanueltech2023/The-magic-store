@@ -7,66 +7,59 @@ import { Sparkle, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
+// --- Helper: Fisher-Yates Shuffle Algorithm ---
+const shuffleArray = (array: any[]) => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
 export const Home = () => {
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-   // 1. Update the fetchHomeData function inside your useEffect
-const fetchHomeData = async () => {
-  setIsLoading(true);
-  try {
-    // Fetch only available and in-stock products
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('is_available', true) // Filter for toggle status
-      .gt('stock', 0)            // Filter for items with stock
-      .order('created_at', { ascending: false })
-      .limit(8);
+    const fetchHomeData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch a slightly larger pool (e.g., 20) so we have variety to shuffle
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('is_available', true) 
+          .gt('stock', 0)
+          .limit(20); // Get more than we need to ensure the "scatter" is good
 
-    if (error) throw error;
+        if (error) throw error;
 
-    if (data) {
-      setFeaturedProducts(data.map(p => ({
-        ...p,
-        image: p.images?.[0] || 'https://via.placeholder.com/400' 
-      })));
-    }
-  } catch (err) {
-    console.error('Error fetching products:', err);
-  } finally {
-    setIsLoading(false);
-  }
-};
+        if (data) {
+          const mappedData = data.map(p => ({
+            ...p,
+            image: p.images?.[0] || 'https://via.placeholder.com/400' 
+          }));
+
+          // --- SHUFFLE & SLICE ---
+          // Shuffle the 20 items and take only the first 8 for the Home view
+          const scattered = shuffleArray(mappedData).slice(0, 8);
+          setFeaturedProducts(scattered);
+        }
+      } catch (err) {
+        console.error('Error fetching products:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     const fetchCategories = () => {
-      // Keeping Mock Categories as requested
       const mockCategories = [
-        { 
-          id: 'cat1', 
-          name: 'K-Drinks', 
-          image: 'https://ik.imagekit.io/pha2ibrpir/sojuu_9aOrr3hhV.jpg?updatedAt=1778592265492', 
-          count: 18 
-        },
-        { 
-          id: 'cat2', 
-          name: 'K-Foods', 
-          image: 'https://images.unsplash.com/photo-1552611052-33e04de081de?q=80&w=800&auto=format&fit=crop', 
-          count: 32 
-        },
-        { 
-          id: 'cat3', 
-          name: 'BTS Merch', 
-          image: 'https://ik.imagekit.io/pha2ibrpir/bts_vz9B62d-W.jpg?updatedAt=1778542797844', 
-          count: 95 
-        },
-        { 
-          id: 'cat4', 
-          name: 'Accessories', 
-          image: 'https://ik.imagekit.io/pha2ibrpir/album_Qikwi4Zut.jpg?updatedAt=1778599960672', 
-          count: 48 
-        },
+        { id: 'cat1', name: 'K-Drinks', image: 'https://ik.imagekit.io/pha2ibrpir/sojuu_9aOrr3hhV.jpg?updatedAt=1778592265492', count: 18 },
+        { id: 'cat2', name: 'K-Foods', image: 'https://images.unsplash.com/photo-1552611052-33e04de081de?q=80&w=800&auto=format&fit=crop', count: 32 },
+        { id: 'cat3', name: 'BTS Merch', image: 'https://ik.imagekit.io/pha2ibrpir/bts_vz9B62d-W.jpg?updatedAt=1778542797844', count: 95 },
+        { id: 'cat4', name: 'Accessories', image: 'https://ik.imagekit.io/pha2ibrpir/album_Qikwi4Zut.jpg?updatedAt=1778599960672', count: 48 },
       ];
       setCategories(mockCategories);
     };

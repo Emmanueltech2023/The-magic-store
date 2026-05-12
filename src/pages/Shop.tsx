@@ -6,6 +6,16 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
+// --- Helper: Fisher-Yates Shuffle Algorithm ---
+const shuffleArray = (array: any[]) => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
 export const Shop = () => {
   const [searchParams] = useSearchParams();
   const categoryFromUrl = searchParams.get('category');
@@ -18,48 +28,39 @@ export const Shop = () => {
   const [showFilters, setShowFilters] = useState(false);
 
   const categories = [
-    'All', 
-    'K-Drinks', 
-    'K-Foods', 
-    'K-Snacks', 
-    'Cookies', 
-    'Bags & Holders', 
-    'Plushies', 
-    'Clothing', 
-    'Accessories', 
-    'Stationery', 
-    'Cups & Bottles', 
-    'Others'
+    'All', 'K-Drinks', 'K-Foods', 'K-Snacks', 'Cookies', 
+    'Bags & Holders', 'Plushies', 'Clothing', 'Accessories', 
+    'Stationery', 'Cups & Bottles', 'Others'
   ];
 
-  // 1. Fetch Products from Supabase
- // 1. Fetch Products from Supabase
   useEffect(() => {
     const fetchProducts = async () => {
       setIsLoading(true);
       
-      // ADDED .eq('is_available', true) and .gt('stock', 0)
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('is_available', true) // Only show available products
-        .gt('stock', 0)            // Only show if stock is greater than 0
-        .order('created_at', { ascending: false });
+        .eq('is_available', true) 
+        .gt('stock', 0);
       
-      const mockProducts = [
-        { id: '1', name: 'COSRX Snail Mucin Essence', price: 15500, category: 'K-Foods', image: '...', badge: 'Best Seller' },
-        // ... rest of mock products
-      ];
-
       if (data && data.length > 0) {
         const mappedProducts = data.map(p => ({
           ...p,
           image: p.images?.[0] || 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?q=80&w=600&auto=format&fit=crop'
         }));
-        setProducts(mappedProducts);
-      } else if (!data || data.length === 0) {
-        // Only show mocks if there's absolutely no data in DB
-        setProducts(mockProducts);
+
+        // --- SHUFFLE LOGIC APPLIED HERE ---
+        // This scatters categories so they don't appear in order of creation
+        const scatteredProducts = shuffleArray(mappedProducts);
+        setProducts(scatteredProducts);
+        
+      } else {
+        // Fallback mock products (Shuffle these too if needed)
+        const mockProducts = [
+            { id: '1', name: 'COSRX Snail Mucin Essence', price: 15500, category: 'K-Foods', image: '...', badge: 'Best Seller' },
+            // ... other mocks
+        ];
+        setProducts(shuffleArray(mockProducts));
       }
       
       setIsLoading(false);
@@ -68,7 +69,8 @@ export const Shop = () => {
     fetchProducts();
   }, []);
 
-  // 2. Handle Category from URL (Home Page link)
+  // ... rest of your useEffects (Category from URL and Filter Logic)
+
   useEffect(() => {
     if (categoryFromUrl) {
       const matched = categories.find(c => c.toLowerCase() === categoryFromUrl.toLowerCase());
@@ -76,9 +78,8 @@ export const Shop = () => {
         setActiveCategory(matched);
       }
     }
-  }, [categoryFromUrl, products]); // Runs when URL changes or products load
+  }, [categoryFromUrl, products]);
 
-  // 3. Filter Logic (Search & Category)
   useEffect(() => {
     let result = products;
     
@@ -92,7 +93,6 @@ export const Shop = () => {
     
     setFilteredProducts(result);
   }, [searchTerm, activeCategory, products]);
-
   return (
     <div className="pt-24 pb-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
