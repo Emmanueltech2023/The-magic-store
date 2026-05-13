@@ -98,7 +98,7 @@ export const Cart = () => {
 I've attached my payment screenshot below for verification. Please confirm receipt!`;
 
   // 3. Construct the URL
-  const phone = "2349064144383"; 
+  const phone = "2349052145715"; 
   const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   
   window.open(whatsappUrl, '_blank');
