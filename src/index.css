@@ -5,12 +5,21 @@
   --font-display: "Playfair Display", serif;
   --font-sans: "Inter", sans-serif;
 
-  --color-primary: #CFA4FF;
-  --color-secondary: #F5D0FE;
-  --color-accent: #E9D5FF;
-  --color-background: #FFF7FB;
-  --color-text: #1F2937;
-  --color-text-muted: #6B7280;
+  /* Primary: Moved from a light lavender to a deep, royal "Magic Shop" purple */
+  --color-primary: #8B5CF6; 
+  
+  /* Secondary: A stronger medium-purple for better contrast */
+  --color-secondary: #C084FC;
+
+  /* Accent: A rich violet to highlight buttons and sparkles */
+  --color-accent: #7C3AED;
+
+  /* Background: Kept very light but added a hint more "body" so it's not pure white */
+  --color-background: #FAF5FF;
+
+  /* Text: Darkened to nearly black for maximum readability */
+  --color-text: #0F172A;
+  --color-text-muted: #475569;
 }
 
 @layer base {

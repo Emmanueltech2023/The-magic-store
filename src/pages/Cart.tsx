@@ -269,7 +269,7 @@ I've attached my payment screenshot below for verification. Please confirm recei
             <div className="mb-6 md:mb-10">
               <div className="flex items-center gap-2 text-primary font-bold text-[10px] md:text-xs mb-2 md:mb-3 uppercase tracking-widest"><Wallet className="w-4 h-4"/> Secure Checkout</div>
               <h2 className="text-xl md:text-3xl font-display font-bold text-slate-950 mb-2">Complete Transfer</h2>
-              <p className="text-slate-500 text-xs md:text-sm leading-relaxed">Pay the total to the account below for swift verification.</p>
+              <p className="text-slate-500 text-xs md:text-sm leading-relaxed">Pay the total to the account below to complete your order.</p>
             </div>
 
             {/* Bank Details "Card" */}
@@ -277,7 +277,7 @@ I've attached my payment screenshot below for verification. Please confirm recei
               <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full translate-x-12 -translate-y-12" />
               <CopyableField label="Bank Name" value="Magic K-Bank" />
               <CopyableField label="Account Number" value="0123456789" />
-              <CopyableField label="Account Name" value="Leapforce Magic Shop Ltd" />
+              <CopyableField label="Account Name" value="The Magic Store Ltd" />
             </div>
 
             <div className="space-y-3 mb-6 md:mb-8">
@@ -287,7 +287,7 @@ I've attached my payment screenshot below for verification. Please confirm recei
               </div>
               <div className="flex items-start gap-3 p-3 md:p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-emerald-800 text-[10px] md:text-xs">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
-                <div><strong>Verify:</strong> Screenshot the transfer for WhatsApp.</div>
+                <div><strong>Verify:</strong>Send proof of payment on WhatsApp (screenshot)</div>
               </div>
             </div>
 
@@ -295,7 +295,7 @@ I've attached my payment screenshot below for verification. Please confirm recei
               onClick={handleFinalWhatsAppRedirect}
               className="w-full py-4 md:py-5 bg-[#25D366] text-white rounded-full text-sm md:text-base font-bold flex items-center justify-center gap-3 hover:shadow-2xl transition-all active:scale-95 mb-4 md:mb-0"
             >
-              Send Verification on WhatsApp
+              Place Order & Send Proof <ArrowRight className="w-4 h-4" />
             </button>
           </div>
 

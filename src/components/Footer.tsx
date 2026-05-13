@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Instagram, Facebook, Mail, MapPin, Phone } from 'lucide-react';
+import { Instagram, Facebook, Mail, MapPin, Phone, Music2 } from 'lucide-react';
 
 export const Footer = () => {
   return (
@@ -12,15 +12,21 @@ export const Footer = () => {
             <Link to="/" className="text-primary font-display text-2xl font-bold italic mb-6 block">
               The Magic Store
             </Link>
-            <p className="text-text-muted text-sm leading-relaxed mb-6">
-              Bringing the magic of Korean beauty and lifestyle to Nigeria. Minimalist, effective, and authentic products.
+           <p className="text-text-muted text-sm leading-relaxed mb-6">
+              Bringing the magic of Korean snacks, viral drinks, and exclusive BT21 lifestyle to Nigeria. Authentic treats and merch curated by themagicstore.com.
             </p>
             <div className="flex space-x-4">
-              <a href="#" className="p-2 bg-secondary/10 text-primary rounded-full hover:bg-primary hover:text-white transition-all">
+              <a href="Https://www.instagram.com/_the_magicstore_7?igsh=MWxpYmZmdjRudHJ3bw%3D%3D&utm_source=qr
+
+" className="p-2 bg-secondary/10 text-primary rounded-full hover:bg-primary hover:text-white transition-all" aria-label="Instagram">
                 <Instagram className="w-5 h-5" />
               </a>
-              <a href="#" className="p-2 bg-secondary/10 text-primary rounded-full hover:bg-primary hover:text-white transition-all">
+              <a href="https://www.tiktok.com/@adeshola60?_r=1&_t=ZS-963aOaX9Bly" className="p-2 bg-secondary/10 text-primary rounded-full hover:bg-primary hover:text-white transition-all" aria-label="Facebook">
                 <Facebook className="w-5 h-5" />
+              </a>
+              {/* TikTok Icon using Music2 as a placeholder or custom SVG */}
+              <a href="https://www.tiktok.com/@themagicstore7?_r=1&_t=ZS-963aPP0cp5W" className="p-2 bg-secondary/10 text-primary rounded-full hover:bg-primary hover:text-white transition-all" aria-label="TikTok">
+                <Music2 className="w-5 h-5" />
               </a>
             </div>
           </div>
@@ -57,11 +63,11 @@ export const Footer = () => {
               </li>
               <li className="flex items-center space-x-3 text-sm text-text-muted">
                 <Phone className="w-5 h-5 text-primary shrink-0" />
-                <span>+234 700 000 0000</span>
+                <span>+234 9052 147 515</span>
               </li>
               <li className="flex items-center space-x-3 text-sm text-text-muted">
                 <Mail className="w-5 h-5 text-primary shrink-0" />
-                <span>hello@magicstore.com</span>
+                <span>themagicstoreenterprise@gmail.com</span>
               </li>
             </ul>
           </div>
@@ -70,7 +76,7 @@ export const Footer = () => {
         <div className="pt-8 border-t border-secondary/10 flex flex-col md:flex-row justify-between items-center text-xs text-text-muted">
           <p>© {new Date().getFullYear()} The Magic Store. All rights reserved.</p>
           <div className="mt-4 md:mt-0 flex space-x-6">
-            <span>Made with ✨ for Nigerian Skin</span>
+            <span>Powered by themagicstore.com ✨</span>
           </div>
         </div>
       </div>
