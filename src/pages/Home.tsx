@@ -235,6 +235,9 @@ export const Home = () => {
               <div className="col-span-full text-center py-20">No products found.</div>
             )}
           </div>
+          <Link to="/shop" className="inline-flex items-center gap-2 bg-primary text-white py-2 px-4 rounded-lg hover:bg-primary/90 transition-colors text-sm font-bold mt-8 ">
+            View All <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </section>
 

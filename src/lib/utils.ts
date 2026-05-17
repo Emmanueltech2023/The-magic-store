@@ -18,13 +18,13 @@ export function formatPrice(price: number) {
 
 export function getWhatsAppLink(productName: string, price: number) {
   const message = `Hi, I want to order ${productName} (${formatPrice(price)})`;
-  return `https://wa.me/2347000000000?text=${encodeURIComponent(message)}`;
+  return `https://wa.me/2349052145715?text=${encodeURIComponent(message)}`;
 }
 
 export function getWhatsAppCartLink(items: { name: string; price: number; quantity: number }[], total: number) {
   const itemSummary = items.map(i => `- ${i.name} (${i.quantity}x) @ ${formatPrice(i.price)}`).join("\n");
   const message = `Hi, I want to place an order:\n\n${itemSummary}\n\nTotal: ${formatPrice(total)}`;
-  return `https://wa.me/2347000000000?text=${encodeURIComponent(message)}`;
+  return `https://wa.me/2349052145715?text=${encodeURIComponent(message)}`;
 }
 
 // --- New Tracking Handlers ---
