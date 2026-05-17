@@ -5,10 +5,9 @@ import { Sparkles } from 'lucide-react';
 
 export const Hero = () => {
   return (
-    /* 
-       RESPONSIVE HEIGHT: 
-       Using h-screen on mobile and h-[85vh] on desktop ensures it feels full-screen 
-       without being too large on high-res monitors. 
+    /* RESPONSIVE HEIGHT: 
+        Using h-screen on mobile and h-[85vh] on desktop ensures it feels full-screen 
+        without being too large on high-res monitors. 
     */
     <section className="relative h-screen min-h-[600px] md:h-[85vh] md:min-h-[700px] flex items-center overflow-hidden bg-brand-background mt-16 md:mt-20">
       
@@ -32,44 +31,45 @@ export const Hero = () => {
             transition={{ duration: 0.8 }}
           >
             <span className="text-primary font-bold uppercase tracking-[0.3em] md:tracking-[0.4em] text-[10px] mb-4 md:mb-6 block">
-              Directly from Seoul to Nigeria
+              Official K-Pop & BT21 Merch in Nigeria
             </span>
             
-            {/* 
-                RESPONSIVE TEXT: 
+            {/* RESPONSIVE TEXT: 
                 Reduced leading and adjusted sizes (text-5xl to text-6xl) for mobile 
-                so the "Magic of Seoul" doesn't overflow.
+                so the text scales beautifully.
             */}
-            <h1 className="text-5xl sm:text-6xl md:text-8xl font-serif font-black text-brand-text mb-6 md:mb-8 leading-[0.9] tracking-tighter">
-              Experience the<br />
-              <span className="italic font-light text-primary">Magic of Seoul.</span>
+            <h1 className="text-5xl sm:text-6xl md:text-7xl xl:text-7xl font-serif font-black text-brand-text mb-6 md:mb-8 leading-[0.95] tracking-tighter">
+              Your Ultimate<br />
+              <span className="italic font-light text-primary">BTS Universe.</span>
             </h1>
             
             <div className="space-y-4 mb-8 md:mb-10">
               <p className="text-sm md:text-base text-brand-text/60 max-w-sm leading-relaxed font-light mx-auto lg:mx-0">
-                From viral drinks to classic snacks, delivered with serenity to your doorstep.
+                Discover Nigeria's largest collection of official BT21 plushies, aesthetic stationery, and exclusive merchandise curated for every ARMY. 
               </p>
               <p className="text-sm md:text-base text-brand-text/60 max-w-sm leading-relaxed font-light mx-auto lg:mx-0">
-                The largest collection of BT21 plushies and stationery for every ARMY.
+                Pair your haul with viral Korean snacks and classic K-drinks, delivered safely and swiftly straight to your doorstep.
               </p>
             </div>
             
-            <div className="flex flex-col sm:flex-row sm:space-x-4 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto justify-center lg:justify-start">
+              <Link 
+                to="/shop?category=stationery" 
+                className="bg-primary text-white px-10 py-4 rounded-full font-bold text-sm hover:scale-105 shadow-xl shadow-primary/20 transition-all text-center active:scale-95 whitespace-nowrap"
+              >
+                Shop BTS Collection
+              </Link>
               <Link 
                 to="/shop" 
-                className="bg-primary text-white px-12 py-4 rounded-full font-bold text-sm hover:scale-105 shadow-xl shadow-primary/20 transition-all text-center active:scale-95"
+                className="bg-white text-slate-900 border border-slate-200 px-10 py-4 rounded-full font-bold text-sm hover:bg-slate-50 transition-all text-center whitespace-nowrap"
               >
-                Shop Now
+                Explore All Magic
               </Link>
             </div>
           </motion.div>
         </div>
 
         {/* HERO CENTERPIECE (Editorial Frame) */}
-        {/* 
-            On tablet/mobile, we keep this hidden to focus on the text, 
-            but we improve the desktop scale for better fit. 
-        */}
         <div className="hidden lg:col-span-7 relative lg:flex items-center justify-center">
           <div className="absolute w-[450px] h-[450px] bg-secondary rounded-full filter blur-[100px] opacity-20 animate-pulse" />
           
@@ -93,8 +93,8 @@ export const Hero = () => {
             transition={{ duration: 4, repeat: Infinity }}
             className="absolute bottom-16 left-4 xl:left-10 bg-white p-5 rounded-3xl shadow-2xl border border-accent/30 z-20"
           >
-            <div className="text-primary font-serif text-3xl leading-none mb-1">-20%</div>
-            <div className="text-[10px] uppercase tracking-widest font-bold text-brand-text/40">Bundle Deal</div>
+            <div className="text-primary font-serif text-3xl leading-none mb-1">ARMY</div>
+            <div className="text-[10px] uppercase tracking-widest font-bold text-brand-text/40">Favorites Box</div>
           </motion.div>
           
           <motion.div 

@@ -10,10 +10,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
 // Helper component for copyable fields
-const CopyableField = ({ label, value }: { label: string; value: string }) => {
+const CopyableField = ({ label, value }: { label: string; value: React.ReactNode }) => {
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(value);
-    // You could add a temporary toast notification here if you have one
+    const text = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
+    if (text) navigator.clipboard.writeText(text);
     alert(`${label} copied!`);
   };
 
@@ -21,7 +21,7 @@ const CopyableField = ({ label, value }: { label: string; value: string }) => {
     <div className="flex justify-between items-center py-3 border-b border-white/10 last:border-0 group">
       <div>
         <span className="text-[10px] text-white/50 font-bold uppercase tracking-widest block mb-1">{label}</span>
-        <span className="font-bold text-white text-base tracking-wide">{value}</span>
+        <div className="font-bold text-white text-base tracking-wide">{value}</div>
       </div>
       <button 
         onClick={copyToClipboard}
@@ -140,30 +140,44 @@ I've attached my payment screenshot below for verification. Please confirm recei
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Cart Items List */}
           <div className="lg:col-span-2 space-y-6">
-            <AnimatePresence>
-              {items.map((item) => (
-                <motion.div key={item.id} layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-[32px] p-6 flex flex-col sm:flex-row items-center gap-6 soft-shadow relative group border border-secondary/10">
-                  <div className="w-24 h-24 sm:w-32 sm:h-32 bg-secondary/10 rounded-2xl overflow-hidden shrink-0">
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-grow text-center sm:text-left">
-                    <h3 className="font-display text-xl font-bold mb-2">{item.name}</h3>
-                    <p className="font-bold text-primary text-lg mb-4">{formatPrice(item.price)}</p>
-                    <div className="flex items-center justify-center sm:justify-start gap-4">
-                       <div className="flex items-center bg-secondary/10 rounded-full p-1 border border-secondary/20">
-                          <button onClick={() => updateQuantity(item.id, -1)} className="p-1.5 hover:bg-white rounded-full transition-colors"><Minus className="w-4 h-4" /></button>
-                          <span className="w-10 text-center font-bold">{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item.id, 1)} className="p-1.5 hover:bg-white rounded-full transition-colors"><Plus className="w-4 h-4" /></button>
-                       </div>
-                    </div>
-                  </div>
-                  <button onClick={() => removeItem(item.id)} className="absolute top-6 right-6 p-2 text-text-muted hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+  <AnimatePresence>
+    {items.map((item) => (
+      <motion.div 
+        key={item.id} 
+        layout 
+        initial={{ opacity: 0, x: -20 }} 
+        animate={{ opacity: 1, x: 0 }} 
+        exit={{ opacity: 0, scale: 0.95 }} 
+        className="bg-white rounded-[32px] p-6 flex flex-col sm:flex-row items-center gap-6 soft-shadow relative group border border-secondary/10"
+      >
+        <div className="w-24 h-24 sm:w-32 sm:h-32 bg-secondary/10 rounded-2xl overflow-hidden shrink-0">
+          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+        </div>
+        
+        <div className="flex-grow text-center sm:text-left">
+          <h3 className="font-display text-xl font-bold mb-2">{item.name}</h3>
+          <p className="font-bold text-primary text-lg mb-4">{formatPrice(item.price)}</p>
+          <div className="flex items-center justify-center sm:justify-start gap-4">
+             <div className="flex items-center bg-secondary/10 rounded-full p-1 border border-secondary/20">
+                {/* Fixed the quantity button hovers to only trigger on desktop too */}
+                <button onClick={() => updateQuantity(item.id, -1)} className="p-1.5 md:hover:bg-white rounded-full transition-colors"><Minus className="w-4 h-4" /></button>
+                <span className="w-10 text-center font-bold">{item.quantity}</span>
+                <button onClick={() => updateQuantity(item.id, 1)} className="p-1.5 md:hover:bg-white rounded-full transition-colors"><Plus className="w-4 h-4" /></button>
+             </div>
           </div>
+        </div>
+        
+        {/* CRITICAL FIX: Visible by default on mobile, fades in only on desktop group-hover */}
+        <button 
+          onClick={() => removeItem(item.id)} 
+          className="absolute top-6 right-6 p-2 text-text-muted md:hover:text-red-500 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
+        >
+          <Trash2 className="w-5 h-5" />
+        </button>
+      </motion.div>
+    ))}
+  </AnimatePresence>
+</div>
 
           {/* Order Summary Sidebar */}
           <div className="lg:col-span-1">
@@ -273,12 +287,30 @@ I've attached my payment screenshot below for verification. Please confirm recei
             </div>
 
             {/* Bank Details "Card" */}
-            <div className="bg-primary p-5 md:p-8 rounded-[24px] md:rounded-[30px] shadow-xl shadow-primary/20 space-y-3 md:space-y-4 mb-6 md:mb-8 text-white relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full translate-x-12 -translate-y-12" />
-              <CopyableField label="Bank Name" value="Magic K-Bank" />
-              <CopyableField label="Account Number" value="0123456789" />
-              <CopyableField label="Account Name" value="The Magic Store Ltd" />
-            </div>
+           <div className="bg-primary p-5 md:p-8 rounded-[24px] md:rounded-[30px] shadow-xl shadow-primary/20 space-y-3 md:space-y-4 mb-6 md:mb-8 text-white relative overflow-hidden">
+  <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full translate-x-12 -translate-y-12" />
+  
+  <CopyableField 
+    label="Bank Name" 
+    value={
+      <div className="flex items-center gap-2 inline-flex">
+        <img 
+          src="https://ik.imagekit.io/pha2ibrpir/opay.jpg" 
+          alt="OPay Logo" 
+          className="w-5 h-5 rounded-md object-contain shrink-0"
+          onError={(e) => {
+            // Fallback just in case the external image fails to load
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+        <span className="font-bold tracking-wide">OPAY</span>
+      </div>
+    } 
+  />
+  
+  <CopyableField label="Account Number" value="614 028 1513 " />
+  <CopyableField label="Account Name" value="KHADIJAT ADESOLA AJETUNMOBI" />
+</div>
 
             <div className="space-y-3 mb-6 md:mb-8">
               <div className="flex items-start gap-3 p-3 md:p-4 bg-orange-50 rounded-2xl border border-orange-100 text-orange-800 text-[10px] md:text-xs">
@@ -287,7 +319,7 @@ I've attached my payment screenshot below for verification. Please confirm recei
               </div>
               <div className="flex items-start gap-3 p-3 md:p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-emerald-800 text-[10px] md:text-xs">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
-                <div><strong>Verify:</strong>Send proof of payment on WhatsApp (screenshot)</div>
+                <div><strong>Verify:</strong> Send proof of payment on WhatsApp (screenshot)</div>
               </div>
             </div>
 

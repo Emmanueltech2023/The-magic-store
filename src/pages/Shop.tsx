@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ProductCard } from '../components/ProductCard';
 import { Skeleton } from '../components/Skeleton';
-import { Search, SlidersHorizontal, Sparkle, X } from 'lucide-react';
+import { Search, SlidersHorizontal, Sparkle, X, ExternalLink } from 'lucide-react'; // Added ExternalLink import
 import { motion, AnimatePresence } from 'motion/react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -16,11 +16,44 @@ const shuffleArray = (array: any[]) => {
   return shuffled;
 };
 
+// --- COMPONENT: IN-GRID AD CARD ---
+const InGridAdCard = ({ ad }: { ad: any }) => {
+  return (
+    <motion.a
+      href={ad.ad_link}
+      target="_blank"
+      rel="noopener noreferrer"
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="col-span-1 md:col-span-1 h-full flex flex-col bg-primary/5 border border-primary/20 rounded-[32px] overflow-hidden group relative"
+    >
+      <div className="aspect-square relative overflow-hidden">
+        <img src={ad.ad_image} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+        <div className="absolute top-4 left-4">
+          <span className="bg-primary text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">
+            {ad.ad_tag || 'SPONSORED'}
+          </span>
+        </div>
+      </div>
+      <div className="p-5 flex-grow flex flex-col justify-between bg-white/50 backdrop-blur-sm">
+        <div>
+          <h3 className="font-display font-bold text-lg leading-tight mb-2 text-slate-900">{ad.ad_title}</h3>
+          <p className="text-xs text-slate-500 line-clamp-2 mb-4">{ad.ad_description}</p>
+        </div>
+        <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
+          Explore Now <ExternalLink size={14} />
+        </div>
+      </div>
+    </motion.a>
+  );
+};
+
 export const Shop = () => {
   const [searchParams] = useSearchParams();
   const categoryFromUrl = searchParams.get('category');
 
   const [products, setProducts] = useState<any[]>([]);
+  const [gridAds, setGridAds] = useState<any[]>([]); 
   const [isLoading, setIsLoading] = useState(true);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,75 +67,90 @@ export const Shop = () => {
   ];
 
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       setIsLoading(true);
       
-      const { data, error } = await supabase
+      // 1. Fetch Products
+      const { data: pData } = await supabase
         .from('products')
         .select('*')
         .eq('is_available', true) 
         .gt('stock', 0);
       
-      if (data && data.length > 0) {
-        const mappedProducts = data.map(p => ({
+      // 2. Fetch Mid-Grid Ads
+      const { data: aData } = await supabase
+        .from('site_settings')
+        .select('*')
+        .eq('ad_active', true)
+        .eq('placement', 'mid-grid');
+
+      if (pData) {
+        const mappedProducts = pData.map(p => ({
           ...p,
           image: p.images?.[0] || 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?q=80&w=600&auto=format&fit=crop'
         }));
 
-        // --- SHUFFLE LOGIC APPLIED HERE ---
-        // This scatters categories so they don't appear in order of creation
-        const scatteredProducts = shuffleArray(mappedProducts);
-        setProducts(scatteredProducts);
-        
-      } else {
-        // Fallback mock products (Shuffle these too if needed)
-        const mockProducts = [
-            { id: '1', name: 'COSRX Snail Mucin Essence', price: 15500, category: 'K-Foods', image: '...', badge: 'Best Seller' },
-            // ... other mocks
+        // --- 1. DEFINE YOUR GROUPS ---
+        const topCategories = [
+          'plushies',
+          'accessories',
+          'stationery',
+          'bags & holders',
+          'clothing',
+          'cups & bottles'
         ];
-        setProducts(shuffleArray(mockProducts));
+
+        // --- 2. SEPARATE PRODUCTS INTO POOLS ---
+        // Pool A: All premium merchandise mixed together
+        const premiumPool = mappedProducts.filter(p => 
+          topCategories.includes(p.category?.toLowerCase())
+        );
+
+        // Pool B: All foods, drinks, cookies, and remaining items mixed together
+        const foodAndOthersPool = mappedProducts.filter(p => 
+          !topCategories.includes(p.category?.toLowerCase())
+        );
+
+        // --- 3. SHUFFLE POOLS INDEPENDENTLY ---
+        // This mixes up a plushie, next to a bag, next to a ring perfectly
+        const shuffledPremium = shuffleArray(premiumPool);
+        const shuffledFoodAndOthers = shuffleArray(foodAndOthersPool);
+
+        // --- 4. COMBINE THEM BACK TO THE MAIN STATE ---
+        // Premium merch occupies the top slots seamlessly blended, snacks hit the bottom
+        setProducts([...shuffledPremium, ...shuffledFoodAndOthers]);
+      }
+
+      if (aData) {
+        setGridAds(shuffleArray(aData)); 
       }
       
       setIsLoading(false);
     };
 
-    fetchProducts();
+    fetchData();
   }, []);
-
-  // ... rest of your useEffects (Category from URL and Filter Logic)
 
   useEffect(() => {
     if (categoryFromUrl) {
       const matched = categories.find(c => c.toLowerCase() === categoryFromUrl.toLowerCase());
-      if (matched) {
-        setActiveCategory(matched);
-      }
+      if (matched) setActiveCategory(matched);
     }
   }, [categoryFromUrl, products]);
 
   useEffect(() => {
     let result = products;
-    
-    if (searchTerm) {
-      result = result.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-    }
-    
-    if (activeCategory !== 'All') {
-      result = result.filter(p => p.category === activeCategory);
-    }
-    
+    if (searchTerm) result = result.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    if (activeCategory !== 'All') result = result.filter(p => p.category === activeCategory);
     setFilteredProducts(result);
   }, [searchTerm, activeCategory, products]);
+
   return (
     <div className="pt-24 pb-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-12">
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-center gap-2 text-primary mb-4 font-bold text-sm tracking-widest uppercase"
-          >
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-center gap-2 text-primary mb-4 font-bold text-sm tracking-widest uppercase">
             <Sparkle className="w-4 h-4" />
             <span>The Magic Catalog</span>
           </motion.div>
@@ -148,23 +196,48 @@ export const Shop = () => {
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
-          {isLoading ? (
-            Array.from({ length: 8 }).map((_, idx) => (
-              <div key={idx} className="space-y-4">
-                <Skeleton className="aspect-square rounded-[32px] w-full" />
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
+       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
+  {isLoading ? (
+    Array.from({ length: 8 }).map((_, idx) => (
+      <div key={idx} className="space-y-4">
+        <Skeleton className="aspect-square rounded-[32px] w-full" />
+        <Skeleton className="h-6 w-3/4" />
+        <Skeleton className="h-4 w-1/2" />
+      </div>
+    ))
+  ) : (
+    <AnimatePresence mode='popLayout'>
+      {filteredProducts.map((product, index) => {
+        // Create a unique key combining index and id so React tracks it perfectly
+        const itemKey = `product-${product.id}-${index}`;
+        const adKey = `ad-${product.id}-${index}`;
+
+        return (
+          // Using a motion.div wrapper instead of React.Fragment fixes the 'ref' error completely!
+          <motion.div 
+            key={itemKey}
+            layout
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="contents" // Tailwind class that keeps the grid structure intact
+          >
+            <ProductCard product={product} />
+            
+            {/* AD INJECTION: After every 8th product */}
+            {(index + 1) % 8 === 0 && gridAds.length > 0 && (
+              <div key={adKey}>
+                <InGridAdCard 
+                  ad={gridAds[Math.floor((index / 8) % gridAds.length)]} 
+                />
               </div>
-            ))
-          ) : (
-            <AnimatePresence mode='popLayout'>
-              {filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </AnimatePresence>
-          )}
-        </div>
+            )}
+          </motion.div>
+        );
+      })}
+    </AnimatePresence>
+  )}
+</div>
 
         {/* Empty State */}
         {filteredProducts.length === 0 && !isLoading && (

@@ -6,6 +6,7 @@ import { Hero } from '../components/Hero';
 import { ProductCard } from '../components/ProductCard';
 import { Skeleton } from '../components/Skeleton';
 import { supabase } from '../lib/supabase';
+import { ReviewSection } from '../components/ReviewSection';
 
 const shuffleArray = (array: any[]) => {
   const shuffled = [...array];
@@ -32,9 +33,20 @@ const SocialSection = () => {
           <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-1.13-.32-2.39-.2-3.41.38-.9.52-1.52 1.45-1.64 2.49-.11.7.08 1.42.5 1.99.52.75 1.39 1.21 2.3 1.25.79.05 1.6-.18 2.22-.67.58-.46.91-1.13.98-1.87.11-2.52.05-5.04.07-7.56V0h.01z" />
         </svg>
       ),
-      link: "https://www.tiktok.com/@themagicstore7?_r=1&_t=ZS-963aPP0cp5W",
+      link: "https://www.tiktok.com/@adeshola60?_r=1&_t=ZS-963aOaX9Bly",
       activeColor: "bg-black",
       label: "@themagicstore7"
+    },
+     {
+      name: "TikTok",
+      icon: (
+        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
+          <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-1.13-.32-2.39-.2-3.41.38-.9.52-1.52 1.45-1.64 2.49-.11.7.08 1.42.5 1.99.52.75 1.39 1.21 2.3 1.25.79.05 1.6-.18 2.22-.67.58-.46.91-1.13.98-1.87.11-2.52.05-5.04.07-7.56V0h.01z" />
+        </svg>
+      ),
+      link: "https://www.tiktok.com/@themagicstore7?_r=1&_t=ZS-963aPP0cp5W",
+      activeColor: "bg-black",
+      label: "@themagicstore7_page2"
     },
     {
       name: "Email",
@@ -47,51 +59,59 @@ const SocialSection = () => {
 
   return (
     <section className="py-12 md:py-24">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="relative rounded-[40px] md:rounded-[60px] bg-primary overflow-hidden p-8 md:p-20 shadow-2xl">
-          <div className="absolute top-0 right-0 w-[500px] h-full bg-white/5 -skew-x-12 -z-0" />
-          <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-12 text-center lg:text-left">
-            <div className="max-w-xl">
-              <h2 className="text-4xl md:text-6xl font-display font-bold text-white mb-6">
-                Step Into <br />
-                <span className="text-white/70">The Magic Circle</span>
-              </h2>
-              <p className="text-white/80 text-lg mb-10 font-light">
-                Follow our handles to get updates on the latest merch drops, special snack restocks, and exclusive discounts.
-              </p>
-              <div className="flex flex-wrap justify-center lg:justify-start gap-3">
-                {socials.map((social) => (
-                  <motion.a
-                    key={social.name}
-                    href={social.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    whileTap={{ scale: 0.9 }} // Tactile feedback for mobile
-                    className={`flex items-center gap-3 px-5 py-4 rounded-2xl bg-white/10 border border-white/20 text-white transition-colors duration-300 md:hover:${social.activeColor} active:${social.activeColor}`}
-                  >
-                    {social.icon}
-                    <span className="font-medium text-sm md:text-base">{social.label}</span>
-                  </motion.a>
-                ))}
-              </div>
-            </div>
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="relative rounded-[40px] md:rounded-[60px] bg-primary overflow-hidden p-8 md:p-20 shadow-2xl">
+      {/* Background Image Layer */}
+      <img 
+        src="https://ik.imagekit.io/pha2ibrpir/download%20(2)%20(1).png" // <-- ADD YOUR IMAGE URL HERE
+        alt="Background texture"
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+      {/* Subtle Overlay to enhance text contrast */}
+      <div className="absolute inset-0 bg-primary/40 backdrop-blur-sm" /> 
 
-            <div className="relative hidden sm:block">
-              <motion.div 
-                animate={{ y: [0, -15, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="w-40 h-40 md:w-64 md:h-64 bg-white/10 rounded-[40px] border border-white/20 backdrop-blur-md flex items-center justify-center shadow-2xl"
+      <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-12 text-center lg:text-left">
+        <div className="max-w-xl">
+          <h2 className="text-4xl md:text-6xl font-display font-bold text-white mb-6">
+            Step Into <br />
+            <span className="text-white/70">The Magic Circle</span>
+          </h2>
+          <p className="text-white/80 text-lg mb-10 font-light">
+            Follow our handles to get updates on the latest merch drops, special snack restocks, and exclusive discounts.
+          </p>
+          <div className="flex flex-wrap justify-center lg:justify-start gap-3">
+            {socials.map((social) => (
+              <motion.a
+                key={social.name}
+                href={social.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                whileTap={{ scale: 0.9 }} // Tactile feedback for mobile
+                className={`flex items-center gap-3 px-5 py-4 rounded-2xl bg-white/10 border border-white/20 text-white transition-colors duration-300 md:hover:${social.activeColor} active:${social.activeColor}`}
               >
-                <div className="text-center">
-                  <Send className="w-10 h-10 md:w-12 md:h-12 text-white mb-2 mx-auto" />
-                  <p className="text-white font-bold tracking-widest uppercase text-[10px]">Stay Connected</p>
-                </div>
-              </motion.div>
-            </div>
+                {social.icon}
+                <span className="font-medium text-sm md:text-base">{social.label}</span>
+              </motion.a>
+            ))}
           </div>
         </div>
+
+        <div className="relative hidden sm:block">
+          <motion.div 
+            animate={{ y: [0, -15, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            className="w-40 h-40 md:w-64 md:h-64 bg-white/10 rounded-[40px] border border-white/20 backdrop-blur-md flex items-center justify-center shadow-2xl"
+          >
+            <div className="text-center">
+              <Send className="w-10 h-10 md:w-12 md:h-12 text-white mb-2 mx-auto" />
+              <p className="text-white font-bold tracking-widest uppercase text-[10px]">Stay Connected</p>
+            </div>
+          </motion.div>
+        </div>
       </div>
-    </section>
+    </div>
+  </div>
+</section>
   );
 };
 
@@ -219,6 +239,7 @@ export const Home = () => {
       </section>
 
       <SocialSection />
+      <ReviewSection />
     </div>
   );
 };

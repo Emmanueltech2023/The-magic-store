@@ -19,7 +19,7 @@ export const Navbar = () => {
   ];
 
   // Desktop animation variants
-  const dropdownVariants = {
+  const dropdownVariants: any = {
     hidden: { opacity: 0, y: 15, scale: 0.95 },
     visible: { 
       opacity: 1, 

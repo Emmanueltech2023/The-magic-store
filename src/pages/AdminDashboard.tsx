@@ -47,6 +47,7 @@ export const AdminDashboard = () => {
           { to: '/admin', label: 'Dashboard', icon: BarChart3, active: location.pathname === '/admin' },
           { to: '/admin/insights', label: 'Insights', icon: PieChart, active: location.pathname === '/admin/insights' },
           { to: '/admin/products', label: 'Inventory', icon: Package, active: location.pathname.includes('/admin/products') },
+          { to: '/admin/marketing', label: 'Ads Manager', icon: Sparkles, active: location.pathname === '/admin/marketing' },
         ].map((link) => (
           <Link 
             key={link.to}
@@ -114,6 +115,7 @@ export const AdminDashboard = () => {
           <Route path="products" element={<ProductList />} />
           <Route path="products/new" element={<ProductForm />} />
           <Route path="products/edit/:id" element={<ProductForm />} />
+          <Route path="marketing" element={<AdsManager />} />
         </Routes>
       </main>
     </div>
@@ -468,7 +470,7 @@ const ProductForm = () => {
                 {images.length < 4 && (
                   <div className="aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center p-4 relative">
                      <ImageIcon className="w-8 h-8 text-slate-200 mb-2" />
-                     <IKContext publicKey={import.meta.env.VITE_IMAGEKIT_PUBLIC_KEY} urlEndpoint={import.meta.env.VITE_IMAGEKIT_URL_ENDPOINT} authenticator={authenticator}>
+                     <IKContext publicKey={(import.meta as any).env.VITE_IMAGEKIT_PUBLIC_KEY} urlEndpoint={(import.meta as any).env.VITE_IMAGEKIT_URL_ENDPOINT} authenticator={authenticator}>
                         <IKUpload onSuccess={(res: any) => setImages([...images, res.url])} className="absolute inset-0 opacity-0 cursor-pointer"/>
                      </IKContext>
                   </div>
@@ -481,6 +483,188 @@ const ProductForm = () => {
           </button>
         </div>
       </form>
+    </div>
+  );
+};
+
+const AdsManager = () => {
+  const [loading, setLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [ads, setAds] = useState<any[]>([]); 
+  const [message, setMessage] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null); 
+  
+  const [form, setForm] = useState({
+    ad_active: true,
+    ad_type: 'internal',
+    placement: 'mid-grid', // Default to mid-grid matching your shop view schema rules
+    ad_tag: '',
+    ad_title: '',
+    ad_description: '',
+    ad_image: '',
+    ad_link: ''
+  });
+
+  const fetchAds = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('site_settings')
+      .select('*')
+      .order('updated_at', { ascending: false, nullsFirst: false });
+    if (data) setAds(data);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchAds(); }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+
+    const payload = { ...form, updated_at: new Date() };
+
+    const { error } = editingId 
+      ? await supabase.from('site_settings').update(payload).eq('id', editingId)
+      : await supabase.from('site_settings').insert([payload]);
+    
+    if (!error) {
+      setMessage(editingId ? 'Ad updated!' : 'New ad added to rotation!');
+      setEditingId(null);
+      setForm({ ad_active: true, ad_type: 'internal', placement: 'mid-grid', ad_tag: '', ad_title: '', ad_description: '', ad_image: '', ad_link: '' });
+      fetchAds();
+      setTimeout(() => setMessage(''), 3000);
+    } else {
+      console.error("Error committing ad data:", error.message);
+      setMessage(`Failed to save: ${error.message}`);
+      setTimeout(() => setMessage(''), 5000);
+    }
+    setIsSaving(false);
+  };
+
+  const deleteAd = async (id: string) => {
+    if (!confirm("Remove this ad from rotation?")) return;
+    await supabase.from('site_settings').delete().eq('id', id);
+    fetchAds();
+  };
+
+  const startEdit = (ad: any) => {
+    setEditingId(ad.id);
+    setForm({
+      ad_active: ad.ad_active,
+      ad_type: ad.ad_type,
+      placement: ad.placement || 'mid-grid',
+      ad_tag: ad.ad_tag || '',
+      ad_title: ad.ad_title || '',
+      ad_description: ad.ad_description || '',
+      ad_image: ad.ad_image || '',
+      ad_link: ad.ad_link || ''
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="max-w-4xl space-y-12 animate-in fade-in duration-500">
+      <header className="flex justify-between items-end">
+        <div>
+          <h2 className="text-3xl font-display font-bold text-slate-900">Ads & Marketing</h2>
+          <p className="text-slate-500">Manage your pop-outs and in-grid banners</p>
+        </div>
+        {editingId && (
+          <button onClick={() => {setEditingId(null); setForm({ad_active: true, ad_type: 'internal', placement: 'mid-grid', ad_tag: '', ad_title: '', ad_description: '', ad_image: '', ad_link: ''})}} className="text-sm font-bold text-primary underline">Cancel Edit</button>
+        )}
+      </header>
+
+      {/* STATUS NOTIFICATIONS STATUS ALERT */}
+      {message && (
+        <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20 text-primary text-sm font-bold animate-pulse">
+          {message}
+        </div>
+      )}
+
+      {/* CREATE / EDIT FORM */}
+      <form onSubmit={handleSave} className="space-y-6">
+        <div className="bg-white p-8 rounded-[40px] border border-slate-100 soft-shadow space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+             {/* Placement Selector */}
+             <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block ml-2">Placement</label>
+              <select 
+                value={form.placement} 
+                onChange={e => setForm({...form, placement: e.target.value})}
+                className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none font-bold text-sm"
+              >
+                <option value="popup">Pop-up (10s Delay)</option>
+                <option value="mid-grid">In-Shop Banner</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block ml-2">Display Mode</label>
+              <select value={form.ad_type} onChange={e => setForm({...form, ad_type: e.target.value})} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none font-bold text-sm">
+                <option value="internal">Internal Promotion</option>
+                <option value="google">Google AdSense</option>
+              </select>
+            </div>
+            <div className="flex flex-col justify-center items-center bg-slate-50 rounded-2xl p-2 border border-slate-100">
+                <span className="text-[9px] font-bold text-slate-400 uppercase mb-1">Status</span>
+                <button type="button" onClick={() => setForm({...form, ad_active: !form.ad_active})} className={cn("w-12 h-6 rounded-full transition-all relative", form.ad_active ? "bg-primary" : "bg-slate-300")}>
+                    <div className={cn("absolute top-1 w-4 h-4 bg-white rounded-full transition-all", form.ad_active ? "right-1" : "left-1")} />
+                </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <input value={form.ad_tag} onChange={e => setForm({...form, ad_tag: e.target.value})} placeholder="Tag (e.g. LIMITED)" className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none" required />
+              <input value={form.ad_title} onChange={e => setForm({...form, ad_title: e.target.value})} placeholder="Headline" className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none font-bold" required />
+              <textarea value={form.ad_description} onChange={e => setForm({...form, ad_description: e.target.value})} placeholder="Description" className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none h-24" required />
+            </div>
+            <div className="space-y-4">
+              <input value={form.ad_image} onChange={e => setForm({...form, ad_image: e.target.value})} placeholder="Image URL" className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none text-xs" required />
+              <input value={form.ad_link} onChange={e => setForm({...form, ad_link: e.target.value})} placeholder="Target Link" className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none text-xs" required />
+              <div className="h-24 rounded-2xl bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center overflow-hidden">
+                {form.ad_image ? <img src={form.ad_image} alt="" className="h-full w-full object-cover opacity-50" /> : <span className="text-[10px] text-slate-300">Image Preview</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" disabled={isSaving} className="w-full bg-slate-900 text-white h-16 rounded-full font-bold flex items-center justify-center gap-3 hover:bg-slate-800 transition-all">
+          {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+          {editingId ? 'Save Changes' : 'Add to Rotation'}
+        </button>
+      </form>
+
+      {/* AD LIST / INVENTORY */}
+      <div className="space-y-4">
+        <h3 className="font-bold text-lg px-2">Active Ad Rotation</h3>
+        {loading ? (
+          <p className="text-sm text-slate-400 pl-2">Loading catalog items...</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-4">
+            {ads.map((ad) => (
+              <div key={ad.id} className="bg-white p-4 rounded-3xl border border-slate-100 flex items-center gap-4 group">
+                <div className="w-20 h-20 rounded-2xl bg-slate-100 overflow-hidden flex-shrink-0">
+                  <img src={ad.ad_image} alt="" className="w-full h-full object-cover" />
+                </div>
+                <div className="flex-grow">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={cn("text-[8px] font-black uppercase px-2 py-0.5 rounded-full", ad.placement === 'popup' ? "bg-purple-100 text-purple-600" : "bg-blue-100 text-blue-600")}>
+                      {ad.placement || 'mid-grid'}
+                    </span>
+                    {!ad.ad_active && <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-400">Paused</span>}
+                  </div>
+                  <h4 className="font-bold text-slate-900 text-sm">{ad.ad_title}</h4>
+                  <p className="text-[10px] text-slate-400 truncate max-w-[200px]">{ad.ad_link}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => startEdit(ad)} className="p-3 hover:bg-slate-50 rounded-2xl text-slate-400 hover:text-primary transition-colors"><Edit2 size={18} /></button>
+                  <button onClick={() => deleteAd(ad.id)} className="p-3 hover:bg-red-50 rounded-2xl text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

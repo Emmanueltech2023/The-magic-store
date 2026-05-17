@@ -10,6 +10,7 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminLogin } from './pages/AdminLogin'; // Make sure to create this
 import { ScrollToTop } from './components/ScrollToTop';
 import { ProtectedRoute } from './components/ProtectedRoute'; // Make sure to create this
+import { AdPopup } from './components/AdPopup';
 
 // Wrapper for the main shop to keep the layout consistent
 const ShopLayout = () => (
@@ -18,6 +19,7 @@ const ShopLayout = () => (
     <main className="flex-grow">
       <Outlet />
     </main>
+    <AdPopup />
     <Footer />
     <WhatsAppButton />
   </div>

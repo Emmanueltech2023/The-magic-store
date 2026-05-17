@@ -7,8 +7,9 @@ import dotenv from "dotenv";
 
 dotenv.config({ path: ".env.local" });
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Use process.cwd() as the base directory so the server bundle works
+// when built to CommonJS or ESM formats.
+const __dirname = process.cwd();
 
 async function startServer() {
   const app = express();
