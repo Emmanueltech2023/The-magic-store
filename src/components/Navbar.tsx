@@ -1,16 +1,20 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingCart, Menu, X, ChevronDown, Sparkles } from 'lucide-react';
+import { ShoppingCart, Menu, X, ChevronDown, Sparkles, Heart } from 'lucide-react'; // Added Heart icon import
 import { useCartStore } from '../lib/cartStore';
+import { useWishlistStore } from '../lib/wishlistStore'; // Imported your new wishlist storage link
 import { motion, AnimatePresence } from 'motion/react';
 import logo from '../assets/logo.png';
 
-export const Navbar = () => {
+export const Navbar = ({ isBannerActive = false }: { isBannerActive?: boolean }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const cartItems = useCartStore((state) => state.items);
   const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
   const location = useLocation();
+
+  // Connected Wishlist Counter Length metric
+  const wishlistCount = useWishlistStore((state) => state.items.length);
 
   const categories = [
     'K-Drinks', 'K-Foods', 'K-Snacks', 'Cookies', 
@@ -30,7 +34,7 @@ export const Navbar = () => {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-[100] glass border-b border-white/20">
+ <nav className="w-full glass border-b border-white/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-20 items-center">
           
@@ -90,7 +94,17 @@ export const Navbar = () => {
               Shop All
             </Link>
 
-            <Link to="/cart" className="relative p-2 text-text-muted hover:text-primary transition-all hover:scale-110">
+            {/* DESKTOP WISHLIST ROUTE SHORTCUT BADGE */}
+            <Link to="/favorites" className={`relative p-2 transition-all hover:scale-110 ${location.pathname === '/favorites' ? 'text-rose-500' : 'text-text-muted hover:text-rose-500'}`}>
+              <Heart className={`w-6 h-6 ${wishlistCount > 0 ? 'fill-current' : ''}`} />
+              {wishlistCount > 0 && (
+                <span className="absolute top-0 right-0 bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center shadow-lg shadow-rose-500/30 animate-pulse">
+                  {wishlistCount}
+                </span>
+              )}
+            </Link>
+
+            <Link to="/cart" className={`relative p-2 transition-all hover:scale-110 ${location.pathname === '/cart' ? 'text-primary' : 'text-text-muted hover:text-primary'}`}>
               <ShoppingCart className="w-6 h-6" />
               {cartCount > 0 && (
                 <span className="absolute top-0 right-0 bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center shadow-lg shadow-primary/30">
@@ -100,9 +114,19 @@ export const Navbar = () => {
             </Link>
           </div>
 
-          {/* Mobile Actions */}
-          <div className="flex items-center space-x-2 md:hidden z-[101]">
-            <Link to="/cart" className="relative p-2 text-text-muted" onClick={() => setIsOpen(false)}>
+          {/* Mobile Actions Header Row */}
+          <div className="flex items-center space-x-1 md:hidden z-[101]">
+            {/* MOBILE WISHLIST SHORTCUT ICON */}
+            <Link to="/favorites" className={`relative p-2 ${location.pathname === '/favorites' ? 'text-rose-500' : 'text-text-muted'}`} onClick={() => setIsOpen(false)}>
+              <Heart className={`w-6 h-6 ${wishlistCount > 0 ? 'fill-current' : ''}`} />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center">
+                  {wishlistCount}
+                </span>
+              )}
+            </Link>
+
+            <Link to="/cart" className={`relative p-2 ${location.pathname === '/cart' ? 'text-primary' : 'text-text-muted'}`} onClick={() => setIsOpen(false)}>
               <ShoppingCart className="w-6 h-6" />
               {cartCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-primary text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center">
@@ -110,6 +134,7 @@ export const Navbar = () => {
                 </span>
               )}
             </Link>
+            
             <button 
               onClick={() => setIsOpen(!isOpen)} 
               className="text-text-muted p-2 rounded-full bg-secondary/5"
@@ -121,7 +146,7 @@ export const Navbar = () => {
       </div>
 
       {/* Mobile Menu Overlay - FIXED DROP DOWN */}
-     <AnimatePresence>
+      <AnimatePresence>
         {isOpen && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -135,7 +160,7 @@ export const Navbar = () => {
               <Link 
                 to="/" 
                 onClick={() => setIsOpen(false)} 
-                className="block text-base font-semibold tracking-wide text-text-muted p-4 bg-secondary/5 rounded-2xl active:scale-95 transition-all"
+                className={`block text-base font-semibold tracking-wide p-4 rounded-2xl active:scale-95 transition-all ${location.pathname === '/' ? 'bg-primary/10 text-primary' : 'bg-secondary/5 text-text-muted'}`}
               >
                 Home
               </Link>
@@ -177,9 +202,26 @@ export const Navbar = () => {
               <Link 
                 to="/shop" 
                 onClick={() => setIsOpen(false)} 
-                className="block text-base font-semibold tracking-wide text-text-muted p-4 bg-secondary/5 rounded-2xl active:scale-95 transition-all"
+                className={`block text-base font-semibold tracking-wide p-4 rounded-2xl active:scale-95 transition-all ${location.pathname === '/shop' ? 'bg-primary/10 text-primary' : 'bg-secondary/5 text-text-muted'}`}
               >
                 Shop All
+              </Link>
+
+              {/* MOBILE ACCORDION: Dedicated Wishlist Vault Redirection Row */}
+              <Link 
+                to="/favorites" 
+                onClick={() => setIsOpen(false)} 
+                className={`flex items-center justify-between text-base font-semibold tracking-wide p-4 rounded-2xl active:scale-95 transition-all ${location.pathname === '/favorites' ? 'bg-rose-50 text-rose-600' : 'bg-secondary/5 text-text-muted'}`}
+              >
+                <span>My Vaulted Magic</span>
+                <div className="flex items-center gap-2">
+                  <Heart className={`w-5 h-5 ${wishlistCount > 0 ? 'fill-current text-rose-500' : ''}`} />
+                  {wishlistCount > 0 && (
+                    <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {wishlistCount}
+                    </span>
+                  )}
+                </div>
               </Link>
             </div>
           </motion.div>

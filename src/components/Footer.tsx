@@ -58,31 +58,41 @@ export const Footer = () => {
           </div>
 
           {/* Customer Care */}
-          <div>
+         <div>
             <h4 className="font-display text-lg font-bold mb-6">Customer Care</h4>
             <ul className="space-y-4">
-              <li><a href="#" className="text-text-muted hover:text-primary text-sm transition-colors">Shipping Policy</a></li>
-              <li><a href="#" className="text-text-muted hover:text-primary text-sm transition-colors">Returns & Refunds</a></li>
-              <li><a href="#" className="text-text-muted hover:text-primary text-sm transition-colors">Privacy Policy</a></li>
-              <li><a href="#" className="text-text-muted hover:text-primary text-sm transition-colors">FAQs</a></li>
+              <li><Link to="/shipping-policy" className="text-text-muted hover:text-primary text-sm transition-colors">Shipping Policy</Link></li>
+              <li><Link to="/returns-refunds" className="text-text-muted hover:text-primary text-sm transition-colors">Returns & Refunds</Link></li>
+              <li><Link to="/privacy-policy" className="text-text-muted hover:text-primary text-sm transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/faqs" className="text-text-muted hover:text-primary text-sm transition-colors">FAQs</Link></li>
             </ul>
           </div>
 
           {/* Contact */}
-          <div>
+       <div>
             <h4 className="font-display text-lg font-bold mb-6">Contact Us</h4>
             <ul className="space-y-4">
               <li className="flex items-start space-x-3 text-sm text-text-muted">
                 <MapPin className="w-5 h-5 text-primary shrink-0" />
                 <span>Lagos, Nigeria</span>
               </li>
-              <li className="flex items-center space-x-3 text-sm text-text-muted">
-                <Phone className="w-5 h-5 text-primary shrink-0" />
-                <span>+234 9052 145 715</span>
+              <li>
+                <a 
+                  href="tel:+2349052145715" 
+                  className="flex items-center space-x-3 text-sm text-text-muted hover:text-primary transition-colors group"
+                >
+                  <Phone className="w-5 h-5 text-primary shrink-0 group-hover:scale-110 transition-transform" />
+                  <span>+234 9052 145 715</span>
+                </a>
               </li>
-              <li className="flex items-center space-x-3 text-sm text-text-muted">
-                <Mail className="w-5 h-5 text-primary shrink-0" />
-                <span>themagicstoreenterprise@gmail.com</span>
+              <li>
+                <a 
+                  href="mailto:themagicstoreenterprise@gmail.com" 
+                  className="flex items-center space-x-3 text-sm text-text-muted hover:text-primary transition-colors group"
+                >
+                  <Mail className="w-5 h-5 text-primary shrink-0 group-hover:scale-110 transition-transform" />
+                  <span className="break-all">themagicstoreenterprise@gmail.com</span>
+                </a>
               </li>
             </ul>
           </div>

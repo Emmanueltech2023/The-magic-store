@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ShoppingCart, Heart, Sparkle, ArrowLeft, Check, MessageCircle } from 'lucide-react'; // Swapped for a cleaner icon
+import { ShoppingCart, Heart, Sparkle, ArrowLeft, Check, MessageCircle } from 'lucide-react';
 import { useCartStore } from '../lib/cartStore';
 import { Skeleton } from '../components/Skeleton';
-// IMPORT the new handler here
 import { formatPrice, handleWhatsAppOrder } from '../lib/utils'; 
 import { supabase } from '../lib/supabase';
+import { useWishlistStore } from '../lib/wishlistStore';
 
 export const ProductDetail = () => {
   const { id } = useParams();
@@ -15,6 +15,8 @@ export const ProductDetail = () => {
   const [activeImage, setActiveImage] = useState(0);
   const [isAdded, setIsAdded] = useState(false);
   const addItem = useCartStore((state) => state.addItem);
+  const toggleWishlist = useWishlistStore((state) => state.toggleItem);
+  const isFavorited = useWishlistStore((state) => state.isInWishlist(product?.id));
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -22,11 +24,18 @@ export const ProductDetail = () => {
       const { data } = await supabase.from('products').select('*').eq('id', id).single();
       
       if (data) {
+        const hasDiscount = data.original_price && data.original_price > data.price;
+        const discountPercent = hasDiscount 
+          ? Math.round(((data.original_price - data.price) / data.original_price) * 100)
+          : 0;
+
         setProduct({
           ...data,
+          hasDiscount,
+          discountPercent,
           displayDetails: [
             { label: 'Category', value: data.category },
-            { label: 'Availability', value: data.stock > 0 ? 'In Stock' : 'Pre-order' },
+            { label: 'Availability', value: data.is_available ? 'In Stock' : 'Out of Stock' },
             { label: 'Origin', value: 'South Korea' },
           ]
         });
@@ -36,8 +45,10 @@ export const ProductDetail = () => {
     fetchProduct();
   }, [id]);
 
+  const isSoldOut = product?.is_available === false;
+
   const handleAddToCart = () => {
-    if (!product) return;
+    if (!product || isSoldOut) return;
     addItem({
       id: product.id,
       name: product.name,
@@ -48,7 +59,6 @@ export const ProductDetail = () => {
     setTimeout(() => setIsAdded(false), 2000);
   };
 
-  // UPDATED: Now uses the tracking handler
   const handleWhatsAppChat = async () => {
     if (!product) return;
     await handleWhatsAppOrder(product.name, product.price);
@@ -92,8 +102,20 @@ export const ProductDetail = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
           <div className="space-y-6">
-            <motion.div className="aspect-square md:aspect-[4/5] rounded-[40px] overflow-hidden bg-white border border-slate-100 shadow-2xl shadow-black/5">
-              <img src={product.images[activeImage]} alt={product.name} className="w-full h-full object-cover" />
+            <motion.div className={`relative aspect-square md:aspect-[4/5] rounded-[40px] overflow-hidden bg-white border border-slate-100 shadow-2xl shadow-black/5 ${isSoldOut ? 'opacity-80' : ''}`}>
+              {isSoldOut && (
+                <div className="absolute inset-0 z-20 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
+                  <span className="bg-rose-600 text-white font-black px-8 py-3 rotate-[-10deg] shadow-xl uppercase tracking-widest text-lg">
+                    Sold Out
+                  </span>
+                </div>
+              )}
+              {!isSoldOut && product.hasDiscount && (
+                <div className="absolute top-6 left-6 z-10 bg-rose-500 text-white font-black text-xs px-4 py-1.5 rounded-full shadow-lg shadow-rose-500/30 animate-pulse">
+                  -{product.discountPercent}% OFF
+                </div>
+              )}
+              <img src={product.images[activeImage]} alt={product.name} className={`w-full h-full object-cover ${isSoldOut ? 'grayscale' : ''}`} />
             </motion.div>
             
             <div className="grid grid-cols-4 gap-4">
@@ -111,8 +133,35 @@ export const ProductDetail = () => {
                 <Sparkle className="w-4 h-4" />
                 <span>Authentic K-Merch</span>
               </div>
-              <h1 className="text-4xl md:text-5xl font-serif text-slate-900 leading-tight mb-4 tracking-tight">{product.name}</h1>
-              <p className="text-3xl font-display font-bold text-slate-900">{formatPrice(product.price)}</p>
+              <h1 className="text-4xl md:text-5xl font-serif text-slate-900 leading-tight mb-6 tracking-tight">{product.name}</h1>
+              
+              <div className="inline-flex items-center p-4 rounded-3xl bg-white border border-slate-100/70 soft-shadow gap-4 min-w-[260px] md:min-w-[320px]">
+                <div className="flex flex-col">
+                  {product.hasDiscount && !isSoldOut && (
+                    <span className="text-[10px] font-bold text-rose-500 bg-rose-50 px-2 py-0.5 roundedw-max mb-1 uppercase tracking-wider">
+                      Promo Price
+                    </span>
+                  )}
+                  <div className="flex items-baseline gap-2.5">
+                    <p className="text-3xl font-display font-black text-slate-900">
+                      {isSoldOut ? 'Sold Out' : formatPrice(product.price)}
+                    </p>
+                    {product.hasDiscount && !isSoldOut && (
+                      <span className="text-sm font-semibold text-slate-400 line-through decoration-rose-500 decoration-2">
+                        {formatPrice(product.original_price)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {product.hasDiscount && !isSoldOut && (
+                  <div className="ml-auto bg-rose-500 text-white font-black text-xs px-3 py-2.5 rounded-2xl shadow-md shadow-rose-500/15 text-center leading-none">
+                    <span>SAVE</span>
+                    <br />
+                    <span className="text-sm font-black mt-1 inline-block">{product.discountPercent}%</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             <p className="text-slate-600 leading-relaxed text-lg font-light mb-8">{product.description}</p>
@@ -130,17 +179,34 @@ export const ProductDetail = () => {
               <div className="flex gap-4">
                 <button 
                   onClick={handleAddToCart}
-                  disabled={isAdded}
-                  className={`flex-grow h-16 rounded-full font-bold flex items-center justify-center gap-3 transition-all ${isAdded ? 'bg-emerald-500 text-white' : 'bg-primary text-white'}`}
+                  disabled={isAdded || isSoldOut}
+                  className={`flex-grow h-16 rounded-full font-bold flex items-center justify-center gap-3 transition-all ${
+                    isSoldOut ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 
+                    isAdded ? 'bg-emerald-500 text-white' : 'bg-primary text-white'
+                  }`}
                 >
-                  {isAdded ? <><Check className="w-5 h-5" /> Added</> : <><ShoppingCart className="w-5 h-5" /> Add to Bag</>}
+                  {isSoldOut ? 'Out of Stock' : isAdded ? <><Check className="w-5 h-5" /> Added</> : <><ShoppingCart className="w-5 h-5" /> Add to Bag</>}
                 </button>
-                <button className="h-16 w-16 bg-white border border-slate-100 text-slate-900 rounded-full flex items-center justify-center">
-                  <Heart className="w-6 h-6" />
+                <button 
+                  onClick={() => product && toggleWishlist({
+                    id: product.id,
+                    name: product.name,
+                    price: product.price,
+                    image: product.images[0],
+                    category: product.category,
+                    is_available: product.is_available
+                  })}
+                  className={`h-16 w-16 border rounded-full flex items-center justify-center transition-all duration-300 ${
+                    isFavorited 
+                      ? 'bg-rose-50 border-rose-200 text-rose-500' 
+                      : 'bg-white border-slate-100 text-slate-900 hover:bg-slate-50'
+                  }`}
+                  aria-label="Toggle wishlist"
+                >
+                  <Heart className={`w-6 h-6 ${isFavorited ? 'fill-current' : ''}`} />
                 </button>
               </div>
 
-              {/* WhatsApp Box with Tracking */}
               <div className="p-8 rounded-[40px] bg-white border border-slate-100 relative overflow-hidden shadow-sm">
                 <div className="relative z-10 flex items-center justify-between gap-6">
                   <div>
@@ -156,13 +222,13 @@ export const ProductDetail = () => {
                   </button>
                 </div>
               </div>
-            </div>
 
-            <div className="mt-16 pt-8 border-t border-slate-100">
-               <h3 className="font-bold text-sm text-slate-900 mb-4 tracking-widest uppercase">Product Info</h3>
-               <div className="text-slate-600 leading-relaxed text-sm font-light">
+              <div className="mt-16 pt-8 border-t border-slate-100">
+                <h3 className="font-bold text-sm text-slate-900 mb-4 tracking-widest uppercase">Product Info</h3>
+                <div className="text-slate-600 leading-relaxed text-sm font-light">
                   {product.usage || "No additional information provided."}
-               </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -44,39 +44,47 @@ export const Cart = () => {
   const [orderId, setOrderId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState('');
 
-  // --- Logic 1: Initiate Order ---
-  const handleProceedToPayment = async () => {
-    if (!customerName.trim()) {
-      alert("We need your name to secure your order.");
-      return;
-    }
+ // --- Logic 1: Initiate Order ---
+const handleProceedToPayment = async () => {
+  if (!customerName.trim()) {
+    alert("We need your name to secure your order.");
+    return;
+  }
 
-    setIsProcessing(true);
-    try {
-      const { data, error } = await supabase
-        .from('orders')
-        .insert([{
-          customer_name: customerName,
-          amount: total,
-          status: 'pending',
-          is_archived: false,
-          items: items,
-          product_name: items.map(i => i.name).join(', ')
-        }])
-        .select()
-        .single();
+  // 1. Availability check: Filter items that are no longer available
+  const unavailableItems = items.filter(item => item.is_available === false);
+  
+  if (unavailableItems.length > 0) {
+    alert(`The following items are no longer available: ${unavailableItems.map(i => i.name).join(', ')}. Please remove them to proceed.`);
+    return;
+  }
 
-      if (error) throw error;
+  setIsProcessing(true);
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .insert([{
+        customer_name: customerName,
+        amount: total,
+        status: 'pending',
+        is_archived: false,
+        items: items,
+        product_name: items.map(i => i.name).join(', ')
+      }])
+      .select()
+      .single();
 
-      setOrderId(data.id);
-      setShowModal(true); 
-    } catch (err) {
-      console.error("Error creating order:", err);
-      alert("Failed to initiate order. Please try again.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+    if (error) throw error;
+
+    setOrderId(data.id);
+    setShowModal(true); 
+  } catch (err) {
+    console.error("Error creating order:", err);
+    alert("Failed to initiate order. Please try again.");
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   // --- Logic 2: WhatsApp 
  const handleFinalWhatsAppRedirect = () => {
@@ -142,40 +150,57 @@ I've attached my payment screenshot below for verification. Please confirm recei
           <div className="lg:col-span-2 space-y-6">
   <AnimatePresence>
     {items.map((item) => (
-      <motion.div 
-        key={item.id} 
-        layout 
-        initial={{ opacity: 0, x: -20 }} 
-        animate={{ opacity: 1, x: 0 }} 
-        exit={{ opacity: 0, scale: 0.95 }} 
-        className="bg-white rounded-[32px] p-6 flex flex-col sm:flex-row items-center gap-6 soft-shadow relative group border border-secondary/10"
-      >
-        <div className="w-24 h-24 sm:w-32 sm:h-32 bg-secondary/10 rounded-2xl overflow-hidden shrink-0">
-          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+  <motion.div 
+    key={item.id} 
+    className={`bg-white rounded-[32px] p-6 flex flex-col sm:flex-row items-center gap-6 soft-shadow relative group border ${
+      item.is_available === false ? 'border-rose-300 bg-rose-50/50' : 'border-secondary/10'
+    }`}
+  >
+    {/* Sold Out Badge within Cart */}
+    {item.is_available === false && (
+      <div className="absolute top-4 left-4 z-10 bg-rose-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
+        Sold Out
+      </div>
+    )}
+
+    <div className={`w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden shrink-0 ${item.is_available === false ? 'grayscale' : ''}`}>
+      <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+    </div>
+    
+    <div className="flex-grow text-center sm:text-left">
+      <h3 className={`font-display text-xl font-bold mb-2 ${item.is_available === false ? 'text-slate-400' : ''}`}>
+        {item.name}
+      </h3>
+      <p className="font-bold text-primary text-lg mb-4">{formatPrice(item.price)}</p>
+      
+      {/* Disable quantity controls if sold out */}
+      <div className="flex items-center justify-center sm:justify-start gap-4">
+        <div className="flex items-center bg-secondary/10 rounded-full p-1 border border-secondary/20">
+          <button 
+            onClick={() => updateQuantity(item.id, -1)} 
+            className="p-1.5 md:hover:bg-white rounded-full transition-colors"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
+          <span className="w-10 text-center font-bold">{item.quantity}</span>
+          <button 
+            onClick={() => updateQuantity(item.id, 1)} 
+            className="p-1.5 md:hover:bg-white rounded-full transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
         </div>
-        
-        <div className="flex-grow text-center sm:text-left">
-          <h3 className="font-display text-xl font-bold mb-2">{item.name}</h3>
-          <p className="font-bold text-primary text-lg mb-4">{formatPrice(item.price)}</p>
-          <div className="flex items-center justify-center sm:justify-start gap-4">
-             <div className="flex items-center bg-secondary/10 rounded-full p-1 border border-secondary/20">
-                {/* Fixed the quantity button hovers to only trigger on desktop too */}
-                <button onClick={() => updateQuantity(item.id, -1)} className="p-1.5 md:hover:bg-white rounded-full transition-colors"><Minus className="w-4 h-4" /></button>
-                <span className="w-10 text-center font-bold">{item.quantity}</span>
-                <button onClick={() => updateQuantity(item.id, 1)} className="p-1.5 md:hover:bg-white rounded-full transition-colors"><Plus className="w-4 h-4" /></button>
-             </div>
-          </div>
-        </div>
-        
-        {/* CRITICAL FIX: Visible by default on mobile, fades in only on desktop group-hover */}
-        <button 
-          onClick={() => removeItem(item.id)} 
-          className="absolute top-6 right-6 p-2 text-text-muted md:hover:text-red-500 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
-        >
-          <Trash2 className="w-5 h-5" />
-        </button>
-      </motion.div>
-    ))}
+      </div>
+    </div>
+    
+    <button 
+      onClick={() => removeItem(item.id)} 
+      className="absolute top-6 right-6 p-2 text-text-muted md:hover:text-red-500 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
+    >
+      <Trash2 className="w-5 h-5" />
+    </button>
+  </motion.div>
+))}
   </AnimatePresence>
 </div>
 

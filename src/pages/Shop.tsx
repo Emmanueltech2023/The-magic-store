@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { ProductCard } from '../components/ProductCard';
 import { Skeleton } from '../components/Skeleton';
-import { Search, SlidersHorizontal, Sparkle, X, ExternalLink } from 'lucide-react'; // Added ExternalLink import
+import { Search, SlidersHorizontal, Sparkle, X, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useOutletContext } from 'react-router-dom'; // Included useOutletContext hook mapping
 import { supabase } from '../lib/supabase';
 
 // --- Helper: Fisher-Yates Shuffle Algorithm ---
@@ -52,6 +52,9 @@ export const Shop = () => {
   const [searchParams] = useSearchParams();
   const categoryFromUrl = searchParams.get('category');
 
+  // --- ACCESS GLOBAL APP LAYOUT CONTEXT PIECE ---
+  const { flashSale } = useOutletContext<{ flashSale: any }>();
+
   const [products, setProducts] = useState<any[]>([]);
   const [gridAds, setGridAds] = useState<any[]>([]); 
   const [isLoading, setIsLoading] = useState(true);
@@ -74,7 +77,7 @@ export const Shop = () => {
       const { data: pData } = await supabase
         .from('products')
         .select('*')
-        .eq('is_available', true) 
+        // .eq('is_available', true) 
         .gt('stock', 0);
       
       // 2. Fetch Mid-Grid Ads
@@ -87,10 +90,10 @@ export const Shop = () => {
       if (pData) {
         const mappedProducts = pData.map(p => ({
           ...p,
+          originalPrice: p.original_price, 
           image: p.images?.[0] || 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?q=80&w=600&auto=format&fit=crop'
         }));
 
-        // --- 1. DEFINE YOUR GROUPS ---
         const topCategories = [
           'plushies',
           'accessories',
@@ -100,24 +103,17 @@ export const Shop = () => {
           'cups & bottles'
         ];
 
-        // --- 2. SEPARATE PRODUCTS INTO POOLS ---
-        // Pool A: All premium merchandise mixed together
         const premiumPool = mappedProducts.filter(p => 
           topCategories.includes(p.category?.toLowerCase())
         );
 
-        // Pool B: All foods, drinks, cookies, and remaining items mixed together
         const foodAndOthersPool = mappedProducts.filter(p => 
           !topCategories.includes(p.category?.toLowerCase())
         );
 
-        // --- 3. SHUFFLE POOLS INDEPENDENTLY ---
-        // This mixes up a plushie, next to a bag, next to a ring perfectly
         const shuffledPremium = shuffleArray(premiumPool);
         const shuffledFoodAndOthers = shuffleArray(foodAndOthersPool);
 
-        // --- 4. COMBINE THEM BACK TO THE MAIN STATE ---
-        // Premium merch occupies the top slots seamlessly blended, snacks hit the bottom
         setProducts([...shuffledPremium, ...shuffledFoodAndOthers]);
       }
 
@@ -196,48 +192,47 @@ export const Shop = () => {
         </div>
 
         {/* Products Grid */}
-       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
-  {isLoading ? (
-    Array.from({ length: 8 }).map((_, idx) => (
-      <div key={idx} className="space-y-4">
-        <Skeleton className="aspect-square rounded-[32px] w-full" />
-        <Skeleton className="h-6 w-3/4" />
-        <Skeleton className="h-4 w-1/2" />
-      </div>
-    ))
-  ) : (
-    <AnimatePresence mode='popLayout'>
-      {filteredProducts.map((product, index) => {
-        // Create a unique key combining index and id so React tracks it perfectly
-        const itemKey = `product-${product.id}-${index}`;
-        const adKey = `ad-${product.id}-${index}`;
-
-        return (
-          // Using a motion.div wrapper instead of React.Fragment fixes the 'ref' error completely!
-          <motion.div 
-            key={itemKey}
-            layout
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="contents" // Tailwind class that keeps the grid structure intact
-          >
-            <ProductCard product={product} />
-            
-            {/* AD INJECTION: After every 8th product */}
-            {(index + 1) % 8 === 0 && gridAds.length > 0 && (
-              <div key={adKey}>
-                <InGridAdCard 
-                  ad={gridAds[Math.floor((index / 8) % gridAds.length)]} 
-                />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
+          {isLoading ? (
+            Array.from({ length: 8 }).map((_, idx) => (
+              <div key={idx} className="space-y-4">
+                <Skeleton className="aspect-square rounded-[32px] w-full" />
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
               </div>
-            )}
-          </motion.div>
-        );
-      })}
-    </AnimatePresence>
-  )}
-</div>
+            ))
+          ) : (
+            <AnimatePresence mode='popLayout'>
+              {filteredProducts.map((product, index) => {
+                const itemKey = `product-${product.id}-${index}`;
+                const adKey = `ad-${product.id}-${index}`;
+
+                return (
+                  <motion.div 
+                    key={itemKey}
+                    layout
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="contents" 
+                  >
+                    {/* 👇 CONNECTED: The context object payload is forwarded directly into the card component */}
+                    <ProductCard product={product} flashSale={flashSale} />
+                    
+                    {/* AD INJECTION: After every 8th product */}
+                    {(index + 1) % 8 === 0 && gridAds.length > 0 && (
+                      <div key={adKey}>
+                        <InGridAdCard 
+                          ad={gridAds[Math.floor((index / 8) % gridAds.length)]} 
+                        />
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          )}
+        </div>
 
         {/* Empty State */}
         {filteredProducts.length === 0 && !isLoading && (

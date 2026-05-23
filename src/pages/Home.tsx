@@ -7,6 +7,7 @@ import { ProductCard } from '../components/ProductCard';
 import { Skeleton } from '../components/Skeleton';
 import { supabase } from '../lib/supabase';
 import { ReviewSection } from '../components/ReviewSection';
+import { useOutletContext } from 'react-router-dom'; // Included useOutletContext hook mapping
 
 const shuffleArray = (array: any[]) => {
   const shuffled = [...array];
@@ -20,6 +21,7 @@ const shuffleArray = (array: any[]) => {
 const SocialSection = () => {
   const socials = [
     {
+      id: "social-instagram", // Added distinct ID strings to bypass duplicate tracking keys completely
       name: "Instagram",
       icon: <Instagram className="w-6 h-6" />,
       link: "https://www.instagram.com/_the_magicstore_7?igsh=MWxpYmZmdjRudHJ3bw%3D%3D&utm_source=qr",
@@ -27,6 +29,7 @@ const SocialSection = () => {
       label: "@_the_magicstore_7"
     },
     {
+      id: "social-tiktok-1",
       name: "TikTok",
       icon: (
         <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
@@ -37,7 +40,8 @@ const SocialSection = () => {
       activeColor: "bg-black",
       label: "@themagicstore7"
     },
-     {
+    {
+      id: "social-tiktok-2",
       name: "TikTok",
       icon: (
         <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
@@ -49,6 +53,7 @@ const SocialSection = () => {
       label: "@themagicstore7_page2"
     },
     {
+      id: "social-email",
       name: "Email",
       icon: <Mail className="w-6 h-6" />,
       link: "mailto:themagicstoreenterprise@gmail.com",
@@ -59,63 +64,64 @@ const SocialSection = () => {
 
   return (
     <section className="py-12 md:py-24">
-  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div className="relative rounded-[40px] md:rounded-[60px] bg-primary overflow-hidden p-8 md:p-20 shadow-2xl">
-      {/* Background Image Layer */}
-      <img 
-        src="https://ik.imagekit.io/pha2ibrpir/download%20(2)%20(1).png" // <-- ADD YOUR IMAGE URL HERE
-        alt="Background texture"
-        className="absolute inset-0 w-full h-full object-cover"
-      />
-      {/* Subtle Overlay to enhance text contrast */}
-      <div className="absolute inset-0 bg-primary/40 backdrop-blur-sm" /> 
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="relative rounded-[40px] md:rounded-[60px] bg-primary overflow-hidden p-8 md:p-20 shadow-2xl">
+          <img 
+            src="https://ik.imagekit.io/pha2ibrpir/download%20(2)%20(1).png" 
+            alt="Background texture"
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-primary/40 backdrop-blur-sm" /> 
 
-      <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-12 text-center lg:text-left">
-        <div className="max-w-xl">
-          <h2 className="text-4xl md:text-6xl font-display font-bold text-white mb-6">
-            Step Into <br />
-            <span className="text-white/70">The Magic Circle</span>
-          </h2>
-          <p className="text-white/80 text-lg mb-10 font-light">
-            Follow our handles to get updates on the latest merch drops, special snack restocks, and exclusive discounts.
-          </p>
-          <div className="flex flex-wrap justify-center lg:justify-start gap-3">
-            {socials.map((social) => (
-              <motion.a
-                key={social.name}
-                href={social.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                whileTap={{ scale: 0.9 }} // Tactile feedback for mobile
-                className={`flex items-center gap-3 px-5 py-4 rounded-2xl bg-white/10 border border-white/20 text-white transition-colors duration-300 md:hover:${social.activeColor} active:${social.activeColor}`}
+          <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-12 text-center lg:text-left">
+            <div className="max-w-xl">
+              <h2 className="text-4xl md:text-6xl font-display font-bold text-white mb-6">
+                Step Into <br />
+                <span className="text-white/70">The Magic Circle</span>
+              </h2>
+              <p className="text-white/80 text-lg mb-10 font-light">
+                Follow our handles to get updates on the latest merch drops, special snack restocks, and exclusive discounts.
+              </p>
+              <div className="flex flex-wrap justify-center lg:justify-start gap-3">
+                {socials.map((social) => (
+                  <motion.a
+                    key={social.id} // Updated tracking pointer to safe item template IDs
+                    href={social.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    whileTap={{ scale: 0.9 }} 
+                    className={`flex items-center gap-3 px-5 py-4 rounded-2xl bg-white/10 border border-white/20 text-white transition-colors duration-300 md:hover:${social.activeColor} active:${social.activeColor}`}
+                  >
+                    {social.icon}
+                    <span className="font-medium text-sm md:text-base">{social.label}</span>
+                  </motion.a>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative hidden sm:block">
+              <motion.div 
+                animate={{ y: [0, -15, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                className="w-40 h-40 md:w-64 md:h-64 bg-white/10 rounded-[40px] border border-white/20 backdrop-blur-md flex items-center justify-center shadow-2xl"
               >
-                {social.icon}
-                <span className="font-medium text-sm md:text-base">{social.label}</span>
-              </motion.a>
-            ))}
+                <div className="text-center">
+                  <Send className="w-10 h-10 md:w-12 md:h-12 text-white mb-2 mx-auto" />
+                  <p className="text-white font-bold tracking-widest uppercase text-[10px]">Stay Connected</p>
+                </div>
+              </motion.div>
+            </div>
           </div>
         </div>
-
-        <div className="relative hidden sm:block">
-          <motion.div 
-            animate={{ y: [0, -15, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            className="w-40 h-40 md:w-64 md:h-64 bg-white/10 rounded-[40px] border border-white/20 backdrop-blur-md flex items-center justify-center shadow-2xl"
-          >
-            <div className="text-center">
-              <Send className="w-10 h-10 md:w-12 md:h-12 text-white mb-2 mx-auto" />
-              <p className="text-white font-bold tracking-widest uppercase text-[10px]">Stay Connected</p>
-            </div>
-          </motion.div>
-        </div>
       </div>
-    </div>
-  </div>
-</section>
+    </section>
   );
 };
 
 export const Home = () => {
+  // --- ACCESS GLOBAL APP LAYOUT CONTEXT PIECE ---
+  const { flashSale } = useOutletContext<{ flashSale: any }>();
+
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -165,8 +171,8 @@ export const Home = () => {
     <div className="pb-20">
       <Hero />
 
-      {/* Categories Section - Auto-scrolling on mobile is great because it shows there's more content without interaction */}
-     <section id="categories" className="py-14 bg-primary/5">
+      {/* Categories Section */}
+      <section id="categories" className="py-14 bg-primary/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-end mb-12">
             <div>
@@ -186,7 +192,7 @@ export const Home = () => {
               className="flex gap-4 md:gap-6"
               animate={{ x: ["0%", "-50%"] }}
               transition={{
-                duration: 20, // Slowed down slightly for better readability
+                duration: 20, 
                 ease: "linear",
                 repeat: Infinity,
               }}
@@ -208,8 +214,8 @@ export const Home = () => {
         </div>
       </section>
 
-      {/* Featured Products - ProductCard handles its own mobile tap states */}
-    <section className="py-10 relative overflow-hidden">
+      {/* Featured Products Section */}
+      <section className="py-10 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-full bg-primary/5 -skew-y-3 origin-top-left -z-10" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
@@ -230,7 +236,10 @@ export const Home = () => {
                 </div>
               ))
             ) : featuredProducts.length > 0 ? (
-              featuredProducts.map((product) => <ProductCard key={product.id} product={product} />)
+              featuredProducts.map((product) => (
+                // 👇 CONNECTED: Forwarding the live flashSale data context rule directly into your featured cards row loop
+                <ProductCard key={product.id} product={product} flashSale={flashSale} />
+              ))
             ) : (
               <div className="col-span-full text-center py-20">No products found.</div>
             )}
