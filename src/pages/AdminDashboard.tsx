@@ -393,10 +393,37 @@ const ProductList = () => {
       </div>
       <p className="text-[10px] md:text-xs text-slate-400 mb-4">{p.stock || 0} units</p>
               
-              <div className="flex gap-2">
-                <button onClick={() => navigate(`/admin/products/edit/${p.id}`)} className="flex-grow py-2 bg-slate-50 text-slate-600 rounded-xl font-bold text-[10px] md:text-xs flex items-center justify-center gap-1 hover:bg-primary hover:text-white transition-all"><Edit2 className="w-3 h-3" /> Edit</button>
-                <button onClick={() => toggleAvailability(p.id, p.is_available)} className={cn("p-2 rounded-xl transition-all", p.is_available ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400")}>{p.is_available ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}</button>
-                <button onClick={() => deleteProduct(p.id)} className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 className="w-3 h-3" /></button>
+             <div className="flex gap-2">
+                <button 
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/admin/products/edit/${p.id}`);
+                  }} 
+                  className="flex-grow py-2 bg-slate-50 text-slate-600 rounded-xl font-bold text-[10px] md:text-xs flex items-center justify-center gap-1 hover:bg-primary hover:text-white transition-all"
+                >
+                  <Edit2 className="w-3 h-3" /> Edit
+                </button>
+                <button 
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleAvailability(p.id, p.is_available);
+                  }} 
+                  className={cn("p-2 rounded-xl transition-all", p.is_available ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400")}
+                >
+                  {p.is_available ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                </button>
+                <button 
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteProduct(p.id);
+                  }} 
+                  className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
               </div>
             </div>
           </div>

@@ -9,7 +9,7 @@ export const Hero = () => {
         Using h-screen on mobile and h-[85vh] on desktop ensures it feels full-screen 
         without being too large on high-res monitors. 
     */
-    <section className="relative h-screen min-h-[600px] md:h-[85vh] md:min-h-[700px] flex items-center overflow-hidden bg-brand-background mt-16 md:mt-20">
+    <section className="relative h-screen min-h-[600px] md:h-[85vh] md:min-h-[700px] flex items-center overflow-hidden bg-brand-background">
       
       {/* BACKGROUND LAYER */}
       <div className="absolute inset-0 z-0">

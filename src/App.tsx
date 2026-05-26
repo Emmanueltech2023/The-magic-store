@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
@@ -24,92 +24,74 @@ import { Clock } from 'lucide-react'; // Visual countdown anchor icon
 const ShopLayout = () => {
   const [flashSale, setFlashSale] = useState<any>(null);
   const [timeLeft, setTimeLeft] = useState<string>('');
+  const [bannerHeight, setBannerHeight] = useState(0);
+  const bannerRef = useRef<HTMLDivElement>(null);
 
+  // 1. Measure banner height
+  useEffect(() => {
+    if (bannerRef.current) setBannerHeight(Math.ceil(bannerRef.current.offsetHeight));
+  }, [flashSale]);
+
+  // 2. Fetch and Subscribe
   useEffect(() => {
     const fetchEventConfig = async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('site_settings')
         .select('*')
         .eq('placement', 'event-config')
         .maybeSingle();
-
-      if (error) {
-        console.error("Database Fetch Error:", error);
-      }
-
-      if (data) {
-        setFlashSale(data);
-      }
+      if (data) setFlashSale(data);
     };
+
     fetchEventConfig();
 
-    const streamingChannel = supabase
+    const channel = supabase
       .channel('live_urgency_stream')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'site_settings' },
-        (payload) => {
-          if (payload.eventType === 'UPDATE') {
-            const updatedRow = payload.new as any;
-            if (updatedRow.placement === 'event-config') {
-              setFlashSale(updatedRow);
-            }
-          } else if (payload.eventType === 'DELETE') {
-            setFlashSale(null);
-          }
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'site_settings' }, 
+      (payload) => {
+        if (payload.eventType === 'UPDATE' && payload.new.placement === 'event-config') setFlashSale(payload.new);
+        else if (payload.eventType === 'DELETE' && payload.old.placement === 'event-config') setFlashSale(null);
+      })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(streamingChannel);
-    };
-  }, []);
+    return () => { supabase.removeChannel(channel); };
+  }, []); // <--- Correctly closed here
 
-  // 3. Client-Side Counter Clock Mathematics Loop
+  // 3. Timer Logic
   useEffect(() => {
-    if (!flashSale?.is_active || !flashSale?.ends_at) {
+    if (!flashSale?.ad_active || !flashSale?.ad_description) {
       setTimeLeft('');
       return;
     }
 
     const calculateRemainingTime = () => {
-      if (!flashSale?.ad_description || !flashSale?.updated_at) return;
-
-      const serverStartTime = new Date(flashSale.updated_at).getTime();
       const serverEndTime = new Date(flashSale.ad_description).getTime();
-      
-      const totalSaleDuration = serverEndTime - serverStartTime;
-      const timeElapsedSinceCreation = Date.now() - serverStartTime;
-      const remainingDistance = totalSaleDuration - timeElapsedSinceCreation;
+      const remainingDistance = serverEndTime - Date.now();
 
       if (remainingDistance <= 0) {
         setTimeLeft('');
         return;
       }
 
-      const hours = Math.floor(remainingDistance / (1000 * 60 * 60));
-      const minutes = Math.floor((remainingDistance % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((remainingDistance % (1000 * 60)) / 1000);
+      const h = Math.floor(remainingDistance / (1000 * 60 * 60));
+      const m = Math.floor((remainingDistance % (1000 * 60 * 60)) / (1000 * 60));
+      const s = Math.floor((remainingDistance % (1000 * 60)) / 1000);
       
-      const hourDisplay = hours > 0 ? `${hours}h ` : '';
-      setTimeLeft(`${hourDisplay}${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`);
+      setTimeLeft(`${h > 0 ? h + 'h ' : ''}${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`);
     };
 
     calculateRemainingTime();
-    const runtimeTicker = setInterval(calculateRemainingTime, 1000);
-
-    return () => clearInterval(runtimeTicker);
+    const ticker = setInterval(calculateRemainingTime, 1000);
+    return () => clearInterval(ticker);
   }, [flashSale]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-text font-sans selection:bg-primary/30">
-      
+    <div className="flex flex-col min-h-screen bg-background text-text">
       {/* 1. STICKY BANNER */}
       {flashSale?.ad_active && (
-        <div className="sticky top-0 z-[101] w-full bg-rose-600 text-white py-3 px-4 text-center text-xs font-black tracking-widest uppercase shadow-sm select-none">
+        <div ref={bannerRef} className="sticky top-0 z-[101] w-full bg-rose-600 text-white py-3 px-4 text-center text-xs font-black tracking-widest uppercase shadow-sm">
           <div className="flex items-center justify-center gap-2 flex-wrap">
-            <span>🌌 Magic Hour Is Live! Save {flashSale.ad_tag}% Sitewide</span>
+            <span>🌌 {flashSale.ad_tittle || 'Magic Hour'} Is Live! Save {flashSale.ad_tag}% Sitewide</span>
             {timeLeft ? (
               <span className="bg-white/20 px-2.5 py-0.5 rounded-full font-mono text-sm animate-pulse ml-1">
                 ⏳ {timeLeft}
@@ -122,7 +104,10 @@ const ShopLayout = () => {
       )}
 
       {/* 2. DYNAMIC STICKY NAVBAR */}
-      <div className={`sticky ${flashSale?.ad_active ? 'top-[40px]' : 'top-0'} z-[100] transition-all duration-300`}>
+      <div 
+        className="sticky z-[100] transition-all duration-300" 
+        style={{ top: flashSale?.ad_active ? `${bannerHeight}px` : '0px' }}
+      >
         <Navbar />
       </div>
 
@@ -160,7 +145,7 @@ export default function App() {
         <Route 
           path="/admin/*" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute>  
               <AdminDashboard />
             </ProtectedRoute>
           } 
