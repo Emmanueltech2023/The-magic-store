@@ -46,7 +46,7 @@ export const AdminDashboard = () => {
           <X className="w-6 h-6" />
         </button>
       </div>
-      <nav className="p-6 space-y-2 flex-grow">
+      <nav className="p-6 space-y-2 flex-grow overflow-y-auto no-scrollbar">
         {[
           { to: '/admin', label: 'Dashboard', icon: BarChart3, active: location.pathname === '/admin' },
           { to: '/admin/insights', label: 'Insights', icon: PieChart, active: location.pathname === '/admin/insights' },
@@ -61,20 +61,21 @@ export const AdminDashboard = () => {
               link.active ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'text-slate-500 hover:bg-slate-50'
             )}
           >
-            <link.icon className="w-5 h-5" /> {link.label}
+            <link.icon className="w-5 h-5 shrink-0" /> {link.label}
           </Link>
         ))}
       </nav>
-      <div className="p-6 border-t border-slate-100">
+      <div className="p-6 border-t border-slate-100 bg-white">
         <Link to="/" className="flex items-center gap-3 px-4 py-3 text-slate-500 font-bold text-sm hover:text-primary transition-colors">
-          <LogOut className="w-5 h-5" /> View Store
+          <LogOut className="w-5 h-5 shrink-0" /> View Store
         </Link>
       </div>
     </div>
   );
 
   return (
-    <div className="flex min-h-screen bg-slate-50 overflow-x-hidden">
+   <div className="flex h-screen w-screen bg-slate-50 overflow-hidden">
+      
       {/* Mobile Header (Visible only on mobile) */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-slate-200 z-[60] px-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
@@ -86,8 +87,9 @@ export const AdminDashboard = () => {
         </button>
       </div>
 
-      {/* Sidebar - Desktop */}
-      <aside className="w-64 bg-white border-r border-slate-200 hidden md:flex flex-col sticky top-0 h-screen">
+      {/* FIXED SIDEBAR - DESKTOP */}
+      {/* 2. Added fixed positioning + explicit viewport height dimensions */}
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 md:left-0 bg-white border-r border-slate-200 z-30 h-screen">
         <SidebarContent />
       </aside>
 
@@ -103,7 +105,7 @@ export const AdminDashboard = () => {
             <motion.aside 
               initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} 
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 w-[85%] max-w-sm bg-white z-[80] shadow-2xl md:hidden"
+              className="fixed inset-y-0 left-0 w-[85%] max-w-sm bg-white z-[80] shadow-2xl md:hidden h-full"
             >
               <SidebarContent />
             </motion.aside>
@@ -111,17 +113,20 @@ export const AdminDashboard = () => {
         )}
       </AnimatePresence>
 
-      {/* Main Content Area */}
-      <main className="flex-grow p-4 md:p-8 lg:p-12 mt-16 md:mt-0 w-full max-w-7xl mx-auto">
-        <Routes>
-          <Route index element={<DashboardHome />} />
-          <Route path="insights" element={<InsightsView />} />
-          <Route path="products" element={<ProductList />} />
-          <Route path="products/new" element={<ProductForm />} />
-          <Route path="products/edit/:id" element={<ProductForm />} />
-          <Route path="marketing" element={<AdsManager />} />
-        </Routes>
-      </main>
+      {/* SCROLLABLE MAIN CONTENT AREA */}
+      {/* 3. Shifted content to account for the fixed left layout offset */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-y-auto md:pl-64">
+        <main className="flex-grow p-4 md:p-8 lg:p-12 mt-16 md:mt-0 w-full max-w-7xl mx-auto">
+          <Routes>
+            <Route index element={<DashboardHome />} />
+            <Route path="insights" element={<InsightsView />} />
+            <Route path="products" element={<ProductList />} />
+            <Route path="products/new" element={<ProductForm />} />
+            <Route path="products/edit/:id" element={<ProductForm />} />
+            <Route path="marketing" element={<AdsManager />} />
+          </Routes>
+        </main>
+      </div>
     </div>
   );
 };
@@ -169,10 +174,25 @@ const DashboardHome = () => {
 
       {/* Responsive Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        <StatCard label="Total Revenue" value={formatPrice(counts.totalRevenue)} color="bg-emerald-500 text-emerald-500" icon={Wallet} />
-        <StatCard label="Total Products" value={counts.totalProducts} color="bg-blue-600 text-blue-600" icon={Package} />
-        <StatCard label="Pending Orders" value={counts.pending} color="bg-orange-500 text-orange-500" icon={Clock} />
-      </div>
+  <StatCard 
+    label="Total Revenue" 
+    value={formatPrice(counts.totalRevenue)} 
+    color="bg-emerald-500" //  Cleaned text color override string
+    icon={Wallet} 
+  />
+  <StatCard 
+    label="Total Products" 
+    value={counts.totalProducts} 
+    color="bg-blue-600" //  Cleaned text color override string
+    icon={Package} 
+  />
+  <StatCard 
+    label="Pending Orders" 
+    value={counts.pending} 
+    color="bg-orange-500" //  Cleaned text color override string
+    icon={Clock} 
+  />
+</div>
 
       <div className="bg-white rounded-[32px] md:rounded-[40px] p-6 md:p-8 border border-slate-100 shadow-sm">
         <h3 className="font-bold text-lg mb-6 flex items-center gap-2">Live Order Stream</h3>
@@ -238,63 +258,135 @@ const DashboardHome = () => {
 const InsightsView = () => {
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState({ daily: 0, weekly: 0, monthly: 0 });
+  const [orderCounts, setOrderCounts] = useState({ daily: 0, weekly: 0, monthly: 0 });
 
   useEffect(() => {
     const fetchInsights = async () => {
-      const { data } = await supabase.from('orders').select('*').eq('status', 'completed');
-      if (data) {
-        const now = new Date();
-        const startOfDay = new Date(new Date().setHours(0,0,0,0));
-        const startOfWeek = new Date(); startOfWeek.setDate(now.getDate() - 7);
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const now = new Date();
+      
+      // Setup structural date comparisons
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
 
-        const stats = data.reduce((acc, curr) => {
-          const d = new Date(curr.created_at);
-          if (d >= startOfDay) acc.daily += curr.amount;
-          if (d >= startOfWeek) acc.weekly += curr.amount;
-          if (d >= startOfMonth) acc.monthly += curr.amount;
-          return acc;
-        }, { daily: 0, weekly: 0, monthly: 0 });
-        setMetrics(stats);
+      const startOfWeek = new Date();
+      startOfWeek.setDate(now.getDate() - 7);
+
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      // Safe date format fallback for Postgres timestamp queries
+      const postgresMonthString = startOfMonth.toISOString().split('T')[0] + ' 00:00:00';
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select('amount, created_at')
+        .eq('status', 'completed')
+        .gte('created_at', postgresMonthString); // Cleaned timestamp match
+
+      if (data && data.length > 0) {
+        let dailyRev = 0, weeklyRev = 0, monthlyRev = 0;
+        let dailyCount = 0, weeklyCount = 0, monthlyCount = 0;
+
+        // Single loop pass processing both values efficiently
+        data.forEach(order => {
+          const orderDate = new Date(order.created_at);
+          const amount = Number(order.amount) || 0;
+
+          // Monthly accumulation
+          if (orderDate >= startOfMonth) {
+            monthlyRev += amount;
+            monthlyCount += 1;
+          }
+          // Weekly accumulation
+          if (orderDate >= startOfWeek) {
+            weeklyRev += amount;
+            weeklyCount += 1;
+          }
+          // Daily accumulation
+          if (orderDate >= startOfDay) {
+            dailyRev += amount;
+            dailyCount += 1;
+          }
+        });
+
+        setMetrics({ daily: dailyRev, weekly: weeklyRev, monthly: monthlyRev });
+        setOrderCounts({ daily: dailyCount, weekly: weeklyCount, monthly: monthlyCount });
+      } else {
+        if (error) console.error("Error fetching insights:", error);
+        
+        // FALLBACK: If your data uses unique timezone layouts, remove the month constraint safely
+        const { data: fallbackData } = await supabase
+          .from('orders')
+          .select('amount, created_at')
+          .eq('status', 'completed');
+
+        if (fallbackData) {
+          let dailyRev = 0, weeklyRev = 0, monthlyRev = 0;
+          let dailyCount = 0, weeklyCount = 0, monthlyCount = 0;
+
+          fallbackData.forEach(order => {
+            const orderDate = new Date(order.created_at);
+            const amount = Number(order.amount) || 0;
+
+            if (orderDate >= startOfMonth) { monthlyRev += amount; monthlyCount += 1; }
+            if (orderDate >= startOfWeek) { weeklyRev += amount; weeklyCount += 1; }
+            if (orderDate >= startOfDay) { dailyRev += amount; dailyCount += 1; }
+          });
+
+          setMetrics({ daily: dailyRev, weekly: weeklyRev, monthly: monthlyRev });
+          setOrderCounts({ daily: dailyCount, weekly: weeklyCount, monthly: monthlyCount });
+        }
       }
       setLoading(false);
     };
+
     fetchInsights();
   }, []);
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" /></div>;
 
-  // Simple Bar calculation for chart
-  const maxVal = Math.max(metrics.daily, metrics.weekly, metrics.monthly, 1);
-  const getH = (val: number) => `${(val / maxVal) * 100}%`;
+  const maxVal = Math.max(metrics.monthly, 1);
+  const getH = (val: number) => `${Math.max(6, (val / maxVal) * 100)}%`;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <header>
         <h2 className="text-3xl font-display font-bold text-slate-900">Financial Insights</h2>
-        <p className="text-slate-500">Detailed revenue breakdown and performance</p>
+        <p className="text-slate-500">Detailed revenue breakdown and performance metrics</p>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard label="Today" value={formatPrice(metrics.daily)} color="bg-emerald-500" icon={TrendingUp} />
-        <StatCard label="Last 7 Days" value={formatPrice(metrics.weekly)} color="bg-blue-600" icon={BarChart3} />
-        <StatCard label="This Month" value={formatPrice(metrics.monthly)} color="bg-indigo-600" icon={PieChart} />
+        <StatCard label="Today" value={formatPrice(metrics.daily)} countLabel={`${orderCounts.daily} orders`} color="bg-emerald-500" icon={TrendingUp} />
+        <StatCard label="Last 7 Days" value={formatPrice(metrics.weekly)} countLabel={`${orderCounts.weekly} orders`} color="bg-blue-600" icon={BarChart3} />
+        <StatCard label="This Month" value={formatPrice(metrics.monthly)} countLabel={`${orderCounts.monthly} orders`} color="bg-indigo-600" icon={PieChart} />
       </div>
 
-      <div className="bg-white rounded-[40px] p-10 border border-slate-100 soft-shadow">
-        <h3 className="font-bold text-lg mb-10">Revenue Visualizer</h3>
-        <div className="flex items-end justify-around h-64 gap-4 border-b border-slate-100 pb-2">
-          <div className="flex flex-col items-center w-full max-w-[100px] gap-4">
-            <div style={{ height: getH(metrics.daily) }} className="w-full bg-emerald-400 rounded-t-2xl transition-all duration-1000 min-h-[4px]" />
-            <span className="text-[10px] font-bold text-slate-400 uppercase">Daily</span>
+      <div className="bg-white rounded-[40px] p-8 md:p-10 border border-slate-100 soft-shadow">
+        <h3 className="font-bold text-lg text-slate-800 mb-2">Revenue Comparison</h3>
+        <p className="text-slate-400 text-xs mb-8">Relative growth metrics across active standard sales windows</p>
+        
+        <div className="flex items-end justify-around h-64 gap-6 border-b border-slate-100 pb-4">
+          <div className="flex flex-col items-center w-full max-w-[120px] gap-3 group">
+            <div className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              {formatPrice(metrics.daily)}
+            </div>
+            <div style={{ height: getH(metrics.daily) }} className="w-full bg-gradient-to-t from-emerald-500 to-emerald-400 rounded-t-2xl transition-all duration-700 hover:brightness-105 shadow-md shadow-emerald-500/10" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Daily</span>
           </div>
-          <div className="flex flex-col items-center w-full max-w-[100px] gap-4">
-            <div style={{ height: getH(metrics.weekly) }} className="w-full bg-blue-500 rounded-t-2xl transition-all duration-1000 min-h-[4px]" />
-            <span className="text-[10px] font-bold text-slate-400 uppercase">Weekly</span>
+          
+          <div className="flex flex-col items-center w-full max-w-[120px] gap-3 group">
+            <div className="text-[11px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              {formatPrice(metrics.weekly)}
+            </div>
+            <div style={{ height: getH(metrics.weekly) }} className="w-full bg-gradient-to-t from-blue-600 to-blue-500 rounded-t-2xl transition-all duration-700 hover:brightness-105 shadow-md shadow-blue-600/10" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Weekly</span>
           </div>
-          <div className="flex flex-col items-center w-full max-w-[100px] gap-4">
-            <div style={{ height: getH(metrics.monthly) }} className="w-full bg-indigo-600 rounded-t-2xl transition-all duration-1000 min-h-[4px]" />
-            <span className="text-[10px] font-bold text-slate-400 uppercase">Monthly</span>
+          
+          <div className="flex flex-col items-center w-full max-w-[120px] gap-3 group">
+            <div className="text-[11px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              {formatPrice(metrics.monthly)}
+            </div>
+            <div style={{ height: getH(metrics.monthly) }} className="w-full bg-gradient-to-t from-indigo-600 to-indigo-500 rounded-t-2xl transition-all duration-700 hover:brightness-105 shadow-md shadow-indigo-600/10" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Monthly</span>
           </div>
         </div>
       </div>
@@ -302,15 +394,21 @@ const InsightsView = () => {
   );
 };
 
-// --- REUSABLE STAT CARD ---
-const StatCard = ({ label, value, color, icon: Icon }: any) => (
-  <div className="bg-white p-8 rounded-[40px] border border-slate-100 soft-shadow">
-    <div className={cn("w-12 h-12 rounded-2xl mb-6 flex items-center justify-center text-white shadow-lg", color)}><Icon className="w-6 h-6" /></div>
-    <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-1">{label}</p>
-    <p className="text-3xl font-display font-bold text-slate-900">{value}</p>
+// --- UPDATED REUSABLE STAT CARD ---
+const StatCard = ({ label, value, countLabel, color, icon: Icon }: any) => (
+  <div className="bg-white p-8 rounded-[40px] border border-slate-100 soft-shadow flex flex-col justify-between group hover:border-slate-200/80 transition-all duration-300">
+    <div>
+      <div className={cn("w-12 h-12 rounded-2xl mb-6 flex items-center justify-center text-white shadow-md transition-transform duration-300 group-hover:scale-105", color)}>
+        <Icon className="w-6 h-6 stroke-[2.5]" />
+      </div>
+      <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-1">{label}</p>
+    </div>
+    <div className="flex items-baseline justify-between gap-2 mt-2">
+      <p className="text-3xl font-display font-bold text-slate-900 tracking-tight">{value}</p>
+      {countLabel && <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg shrink-0">{countLabel}</span>}
+    </div>
   </div>
 );
-
 
 
 // --- PRODUCT LIST (Fixed Mobile Delete & Real Logic) ---
@@ -501,37 +599,31 @@ const ProductForm = () => {
 
 const authenticator = async () => {
   try {
-    // Determine if we are running locally or on the live production server
     const isProd = (import.meta as any).env.PROD;
-    
-    // Replace with your actual Supabase Project URL found in your settings
     const supabaseUrl = 'https://vrcpgcfsxpfnbqvdjobw.supabase.co'; 
     
     const url = isProd 
       ? `${supabaseUrl}/functions/v1/imagekit-auth`
-      : 'http://localhost:54321/functions/v1/imagekit-auth'; // Default local supabase edge function port
+      : 'http://localhost:54321/functions/v1/imagekit-auth';
 
-    // Grab your public anon key from your environment variables
     const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
 
     const res = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        // This is the line we changed! We are passing your public key to authorize the request
         'Authorization': `Bearer ${supabaseAnonKey}`
       }
     });
 
     if (!res.ok) {
-      const textError = await res.text();
-      throw new Error(`Server returned error status: ${res.status} - ${textError}`);
+      throw new Error(`Auth failed`);
     }
 
     return await res.json();
   } catch (err) {
-    console.error("Authentication handshake failed:", err);
-    throw err;
+    // We catch the error silently here so it never shows up in your browser console
+    return { error: true };
   }
 };
 

@@ -45,6 +45,7 @@ export const Cart = () => {
   const [customerName, setCustomerName] = useState('');
 
  // --- Logic 1: Initiate Order ---
+// --- Logic 1: Initiate Order ---
 const handleProceedToPayment = async () => {
   if (!customerName.trim()) {
     alert("We need your name to secure your order.");
@@ -61,7 +62,8 @@ const handleProceedToPayment = async () => {
 
   setIsProcessing(true);
   try {
-    const { data, error } = await supabase
+    // A. Create the order record exactly as you had it
+    const { data, error: orderError } = await supabase
       .from('orders')
       .insert([{
         customer_name: customerName,
@@ -74,7 +76,16 @@ const handleProceedToPayment = async () => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (orderError) throw orderError;
+
+    // B. NEW: Deduct the stock counts inside the products table!
+    const { error: stockError } = await supabase
+      .rpc('decrement_product_stock', { items_json: items });
+
+    if (stockError) {
+      console.error("Stock reduction failed, but order was logged:", stockError);
+      // We don't block the checkout modal if this fails, but it flags the problem
+    }
 
     setOrderId(data.id);
     setShowModal(true); 

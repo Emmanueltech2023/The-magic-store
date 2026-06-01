@@ -14,6 +14,7 @@ interface Product {
   image: string;
   category: string;
   badge?: string;
+  stock: number;
   is_flash_drop?: boolean;
   flash_max_stock?: number;
   flash_items_sold?: number;
@@ -49,10 +50,11 @@ export const ProductCard = ({ product, flashSale }: ProductCardProps) => {
     : (product.originalPrice ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0);
 
   // Safely calculate remaining stock percentages to prevent dividing by zero errors
-  const maxStock = product.flash_max_stock || 10;
-  const itemsSold = product.flash_items_sold || 0;
-  const remainingStock = Math.max(0, maxStock - itemsSold);
-  const stockPercentage = (remainingStock / maxStock) * 100;
+ const remainingStock = product.stock ?? 0; 
+  
+  // Create a visual baseline max scale for your progress bar slider (e.g., 10)
+  const maxStockBaseline = 10; 
+  const stockPercentage = Math.min(100, (remainingStock / maxStockBaseline) * 100);
 
   // Render the stock meter if the individual product flag is true OR if the global event is active
   const showStockMeter = !isSoldOut && (product.is_flash_drop || isGlobalEventActive);
