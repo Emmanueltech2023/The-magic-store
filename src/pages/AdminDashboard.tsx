@@ -573,7 +573,18 @@ const ProductForm = () => {
                   <div className="aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center p-4 relative">
                      <ImageIcon className="w-8 h-8 text-slate-200 mb-2" />
                      <IKContext publicKey={(import.meta as any).env.VITE_IMAGEKIT_PUBLIC_KEY} urlEndpoint={(import.meta as any).env.VITE_IMAGEKIT_URL_ENDPOINT} authenticator={authenticator}>
-                        <IKUpload onSuccess={(res: any) => setImages([...images, res.url])} className="absolute inset-0 opacity-0 cursor-pointer"/>
+                        <IKUpload 
+  onSuccess={(res: any) => {
+    console.log("Upload Success! URL:", res.url);
+    setImages([...images, res.url]);
+  }}
+  onError={(err: any) => {
+    // THIS WILL TELL US EXACTLY WHY IT FAILS ON PRODUCTION
+    console.error("ImageKit Upload Error Details:", err);
+    alert(`Upload failed: ${err.message || 'Check browser console'}`);
+  }} 
+  className="absolute inset-0 opacity-0 cursor-pointer"
+/>
                      </IKContext>
                   </div>
                 )}

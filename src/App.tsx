@@ -70,7 +70,12 @@ const ShopLayout = () => {
 
       if (remainingDistance <= 0) {
         setTimeLeft('');
-        return;
+       supabase
+    .from('site_settings')
+    .update({ ad_active: false })
+    .eq('placement', 'event-config')
+    .then(() => console.log("Sale terminated in database"));
+  return;
       }
 
       const h = Math.floor(remainingDistance / (1000 * 60 * 60));
