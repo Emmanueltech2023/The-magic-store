@@ -511,12 +511,15 @@ const authenticator = async () => {
       ? `${supabaseUrl}/functions/v1/imagekit-auth`
       : 'http://localhost:54321/functions/v1/imagekit-auth'; // Default local supabase edge function port
 
+    // Grab your public anon key from your environment variables
+    const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+
     const res = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        // Optional: Pass the user's access token if you secured this endpoint
-        // 'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        // This is the line we changed! We are passing your public key to authorize the request
+        'Authorization': `Bearer ${supabaseAnonKey}`
       }
     });
 
