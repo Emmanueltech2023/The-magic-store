@@ -499,10 +499,38 @@ const ProductForm = () => {
     setIsSubmitting(false);
   };
 
-  const authenticator = async () => {
-    const res = await fetch('/api/imagekit/auth');
-    return res.json();
-  };
+const authenticator = async () => {
+  try {
+    // Determine if we are running locally or on the live production server
+    const isProd = (import.meta as any).env.PROD;
+    
+    // Replace with your actual Supabase Project URL found in your settings
+    const supabaseUrl = 'https://vrcpgcfsxpfnbqvdjobw.supabase.co'; 
+    
+    const url = isProd 
+      ? `${supabaseUrl}/functions/v1/imagekit-auth`
+      : 'http://localhost:54321/functions/v1/imagekit-auth'; // Default local supabase edge function port
+
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        // Optional: Pass the user's access token if you secured this endpoint
+        // 'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+      }
+    });
+
+    if (!res.ok) {
+      const textError = await res.text();
+      throw new Error(`Server returned error status: ${res.status} - ${textError}`);
+    }
+
+    return await res.json();
+  } catch (err) {
+    console.error("Authentication handshake failed:", err);
+    throw err;
+  }
+};
 
   return (
     <div className="max-w-4xl mx-auto">
