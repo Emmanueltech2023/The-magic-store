@@ -3,11 +3,15 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Clear debug logger to trace values on your live site
+console.log("Supabase URL Detected:", supabaseUrl ? "YES" : "NO");
+console.log("Supabase Key Detected:", supabaseAnonKey ? "YES" : "NO");
+
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn("Supabase credentials missing. App may not function correctly.");
+  console.error("CRITICAL ERROR: Supabase environment variables are missing completely!");
 }
 
 export const supabase = createClient(
-  supabaseUrl || "https://vrcpgcfsxpfnbqvdjobw.supabase.co",
-  supabaseAnonKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZyY3BnY2ZzeHBmbmJxdmRqb2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4NDE1NDQsImV4cCI6MjA5MzQxNzU0NH0.SnmjvQ03oPsiXxlp5IpeILy2GfX5FsbnxL02hF27WWE"
+  supabaseUrl || "",
+  supabaseAnonKey || ""
 );
