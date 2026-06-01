@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCartStore } from '../lib/cartStore';
 import { 
   Trash2, Plus, Minus, ShoppingBag, ArrowRight, Sparkle, 
-  Wallet, CheckCircle2, X, Clipboard, ShieldCheck, Banknote 
+  Wallet, CheckCircle2, X, Clipboard, ShieldCheck, Banknote, AlertCircle 
 } from 'lucide-react';
 import { formatPrice } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -11,10 +11,15 @@ import { supabase } from '../lib/supabase';
 
 // Helper component for copyable fields
 const CopyableField = ({ label, value }: { label: string; value: React.ReactNode }) => {
+  const [copied, setCopied] = useState(false);
+
   const copyToClipboard = () => {
     const text = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
-    if (text) navigator.clipboard.writeText(text);
-    alert(`${label} copied!`);
+    if (text) {
+      navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   return (
@@ -25,9 +30,9 @@ const CopyableField = ({ label, value }: { label: string; value: React.ReactNode
       </div>
       <button 
         onClick={copyToClipboard}
-        className="p-2.5 bg-white/10 rounded-full text-white/60 hover:bg-white hover:text-primary transition-all opacity-0 lg:group-hover:opacity-100 scale-90 group-hover:scale-100"
+        className="p-2.5 bg-white/10 rounded-full text-white/60 hover:bg-white hover:text-primary transition-all opacity-100 lg:opacity-0 lg:group-hover:opacity-100 scale-90 group-hover:scale-100 flex items-center justify-center relative"
       >
-        <Clipboard className="w-4 h-4" />
+        {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Clipboard className="w-4 h-4" />}
       </button>
     </div>
   );
@@ -43,67 +48,73 @@ export const Cart = () => {
   const [showModal, setShowModal] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState('');
-
- // --- Logic 1: Initiate Order ---
-// --- Logic 1: Initiate Order ---
-const handleProceedToPayment = async () => {
-  if (!customerName.trim()) {
-    alert("We need your name to secure your order.");
-    return;
-  }
-
-  // 1. Availability check: Filter items that are no longer available
-  const unavailableItems = items.filter(item => item.is_available === false);
   
-  if (unavailableItems.length > 0) {
-    alert(`The following items are no longer available: ${unavailableItems.map(i => i.name).join(', ')}. Please remove them to proceed.`);
-    return;
-  }
+  // New UI Error Validation States
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
-  setIsProcessing(true);
-  try {
-    // A. Create the order record exactly as you had it
-    const { data, error: orderError } = await supabase
-      .from('orders')
-      .insert([{
-        customer_name: customerName,
-        amount: total,
-        status: 'pending',
-        is_archived: false,
-        items: items,
-        product_name: items.map(i => i.name).join(', ')
-      }])
-      .select()
-      .single();
+  // --- Logic 1: Initiate Order ---
+  const handleProceedToPayment = async () => {
+    // Reset layout errors
+    setNameError(null);
+    setSubmissionError(null);
 
-    if (orderError) throw orderError;
-
-    // B. NEW: Deduct the stock counts inside the products table!
-    const { error: stockError } = await supabase
-      .rpc('decrement_product_stock', { items_json: items });
-
-    if (stockError) {
-      console.error("Stock reduction failed, but order was logged:", stockError);
-      // We don't block the checkout modal if this fails, but it flags the problem
+    if (!customerName.trim()) {
+      setNameError("We need your name to secure your order.");
+      // Scroll to the input smoothly on small devices if out of view
+      document.getElementById('customer-name-field')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
     }
 
-    setOrderId(data.id);
-    setShowModal(true); 
-  } catch (err) {
-    console.error("Error creating order:", err);
-    alert("Failed to initiate order. Please try again.");
-  } finally {
-    setIsProcessing(false);
-  }
-};
+    // Availability check: Filter items that are no longer available
+    const unavailableItems = items.filter(item => item.is_available === false);
+    
+    if (unavailableItems.length > 0) {
+      setSubmissionError(`Unavailable items found: ${unavailableItems.map(i => i.name).join(', ')}. Please remove them to proceed.`);
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      // A. Create the order record
+      const { data, error: orderError } = await supabase
+        .from('orders')
+        .insert([{
+          customer_name: customerName,
+          amount: total,
+          status: 'pending',
+          is_archived: false,
+          items: items,
+          product_name: items.map(i => i.name).join(', ')
+        }])
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // B. Deduct the stock counts inside the products table
+      const { error: stockError } = await supabase
+        .rpc('decrement_product_stock', { items_json: items });
+
+      if (stockError) {
+        console.error("Stock reduction failed, but order was logged:", stockError);
+      }
+
+      setOrderId(data.id);
+      setShowModal(true); 
+    } catch (err) {
+      console.error("Error creating order:", err);
+      setSubmissionError("Failed to initiate order. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   // --- Logic 2: WhatsApp 
- const handleFinalWhatsAppRedirect = () => {
-  const displayId = orderId?.toUpperCase() || "N/A";
+  const handleFinalWhatsAppRedirect = () => {
+    const displayId = orderId?.toUpperCase() || "N/A";
 
-  // 2. Build the neatly arranged message
-  // Use * for bold and the unicode for a "bullet point" or "divider"
-  const message = `*✨ NEW ORDER PAYMENT VERIFICATION ✨*
+    const message = `*✨ NEW ORDER PAYMENT VERIFICATION ✨*
 
 *Order Details:*
 ──────────────────
@@ -116,20 +127,19 @@ const handleProceedToPayment = async () => {
 
 I've attached my payment screenshot below for verification. Please confirm receipt!`;
 
-  // 3. Construct the URL
-  const phone = "2349052145715"; 
-  const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-  
-  window.open(whatsappUrl, '_blank');
-  
-  setTimeout(() => {
-    setShowModal(false);
-    clearCart();
-    navigate('/shop');
-  }, 100);
-};
+    const phone = "2349052145715"; 
+    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    
+    window.open(whatsappUrl, '_blank');
+    
+    setTimeout(() => {
+      setShowModal(false);
+      clearCart();
+      navigate('/shop');
+    }, 100);
+  };
 
-  // --- Empty Cart Return (Unchanged) ---
+  // --- Empty Cart Return ---
   if (items.length === 0) {
     return (
       <div className="pt-32 pb-20 px-4 min-h-[70vh] flex flex-col items-center justify-center text-center">
@@ -146,7 +156,7 @@ I've attached my payment screenshot below for verification. Please confirm recei
 
   // --- Main Cart Return ---
   return (
-    <div className="pt-24 pb-20 bg-background/50">
+   <div className="pt-24 pb-20 bg-background/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumbs & Title */}
         <div className="flex items-center gap-2 mb-8">
@@ -159,61 +169,60 @@ I've attached my payment screenshot below for verification. Please confirm recei
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Cart Items List */}
           <div className="lg:col-span-2 space-y-6">
-  <AnimatePresence>
-    {items.map((item) => (
-  <motion.div 
-    key={item.id} 
-    className={`bg-white rounded-[32px] p-6 flex flex-col sm:flex-row items-center gap-6 soft-shadow relative group border ${
-      item.is_available === false ? 'border-rose-300 bg-rose-50/50' : 'border-secondary/10'
-    }`}
-  >
-    {/* Sold Out Badge within Cart */}
-    {item.is_available === false && (
-      <div className="absolute top-4 left-4 z-10 bg-rose-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
-        Sold Out
-      </div>
-    )}
+            <AnimatePresence>
+              {items.map((item) => (
+                <motion.div 
+                  key={item.id} 
+                  exit={{ opacity: 0, x: -50 }}
+                  className={`bg-white rounded-[32px] p-6 flex flex-col sm:flex-row items-center gap-6 soft-shadow relative group border ${
+                    item.is_available === false ? 'border-rose-300 bg-rose-50/50' : 'border-secondary/10'
+                  }`}
+                >
+                  {item.is_available === false && (
+                    <div className="absolute top-4 left-4 z-10 bg-rose-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
+                      Sold Out
+                    </div>
+                  )}
 
-    <div className={`w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden shrink-0 ${item.is_available === false ? 'grayscale' : ''}`}>
-      <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-    </div>
-    
-    <div className="flex-grow text-center sm:text-left">
-      <h3 className={`font-display text-xl font-bold mb-2 ${item.is_available === false ? 'text-slate-400' : ''}`}>
-        {item.name}
-      </h3>
-      <p className="font-bold text-primary text-lg mb-4">{formatPrice(item.price)}</p>
-      
-      {/* Disable quantity controls if sold out */}
-      <div className="flex items-center justify-center sm:justify-start gap-4">
-        <div className="flex items-center bg-secondary/10 rounded-full p-1 border border-secondary/20">
-          <button 
-            onClick={() => updateQuantity(item.id, -1)} 
-            className="p-1.5 md:hover:bg-white rounded-full transition-colors"
-          >
-            <Minus className="w-4 h-4" />
-          </button>
-          <span className="w-10 text-center font-bold">{item.quantity}</span>
-          <button 
-            onClick={() => updateQuantity(item.id, 1)} 
-            className="p-1.5 md:hover:bg-white rounded-full transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    </div>
-    
-    <button 
-      onClick={() => removeItem(item.id)} 
-      className="absolute top-6 right-6 p-2 text-text-muted md:hover:text-red-500 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
-    >
-      <Trash2 className="w-5 h-5" />
-    </button>
-  </motion.div>
-))}
-  </AnimatePresence>
-</div>
+                  <div className={`w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden shrink-0 ${item.is_available === false ? 'grayscale' : ''}`}>
+                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                  </div>
+                  
+                  <div className="flex-grow text-center sm:text-left">
+                    <h3 className={`font-display text-xl font-bold mb-2 ${item.is_available === false ? 'text-slate-400' : ''}`}>
+                      {item.name}
+                    </h3>
+                    <p className="font-bold text-primary text-lg mb-4">{formatPrice(item.price)}</p>
+                    
+                    <div className="flex items-center justify-center sm:justify-start gap-4">
+                      <div className="flex items-center bg-secondary/10 rounded-full p-1 border border-secondary/20">
+                        <button 
+                          onClick={() => updateQuantity(item.id, -1)} 
+                          className="p-1.5 md:hover:bg-white rounded-full transition-colors"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </button>
+                        <span className="w-10 text-center font-bold">{item.quantity}</span>
+                        <button 
+                          onClick={() => updateQuantity(item.id, 1)} 
+                          className="p-1.5 md:hover:bg-white rounded-full transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <button 
+                    onClick={() => removeItem(item.id)} 
+                    className="absolute top-6 right-6 p-2 text-text-muted md:hover:text-red-500 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
 
           {/* Order Summary Sidebar */}
           <div className="lg:col-span-1">
@@ -221,29 +230,66 @@ I've attached my payment screenshot below for verification. Please confirm recei
               <h2 className="font-display text-2xl font-bold mb-8 flex items-center gap-2">Order Summary <Sparkle className="w-5 h-5 text-primary" /></h2>
               
               <div className="space-y-4 mb-8">
-                {/* Name Input - Required */}
-               <div className="space-y-2 mb-6">
-  <label className="text-[15px] font-black uppercase tracking-widest text-text-muted">
-    Your Full Name
-  </label>
-  <input 
-    type="text" 
-    placeholder="Enter name for order"
-    value={customerName}
-    onChange={(e) => setCustomerName(e.target.value)}
-    className="w-full px-6 py-4 rounded-2xl bg-secondary/5 border border-secondary/80 focus:outline focus:ring-2 focus:ring-primary/20 transition-all font-bold text-sm"
-  />
-</div>
+                {/* Name Input Container with Custom Inline Messaging Error Tracks */}
+                <div id="customer-name-field" className="space-y-2 mb-6">
+                  <label className="text-[13px] font-black uppercase tracking-widest text-text-muted flex justify-between">
+                    Your Full Name <span className="text-rose-500 font-bold">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="Enter name for order"
+                    value={customerName}
+                    onChange={(e) => {
+                      setCustomerName(e.target.value);
+                      if(nameError) setNameError(null); // Instantly clears validation line on keypress
+                    }}
+                    className={`w-full px-6 py-4 rounded-2xl bg-secondary/5 border transition-all font-bold text-sm ${
+                      nameError 
+                        ? 'border-rose-400 focus:outline-none focus:ring-4 focus:ring-rose-500/10 bg-rose-50/30' 
+                        : 'border-secondary/30 focus:outline focus:ring-2 focus:ring-primary/20'
+                    }`}
+                  />
+                  
+                  {/* Inline Name Warning Alert Box */}
+                  <AnimatePresence mode="wait">
+                    {nameError && (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="text-rose-600 font-bold text-xs flex items-center gap-1.5 pt-1 overflow-hidden"
+                      >
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {nameError}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
 
                 <div className="flex justify-between text-text-muted">
                   <span>Subtotal</span>
                   <span className="font-bold">{formatPrice(total)}</span>
                 </div>
+                
                 <div className="pt-4 border-t border-secondary/10 flex justify-between items-center">
                   <span className="font-display text-xl font-bold">Total</span>
                   <span className="font-display text-2xl font-bold text-primary">{formatPrice(total)}</span>
                 </div>
               </div>
+
+              {/* Global Submission / Stock Error Feedback Panel */}
+              <AnimatePresence>
+                {submissionError && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="mb-4 p-4 rounded-2xl bg-rose-50 border border-rose-100 text-rose-800 text-xs font-semibold flex items-start gap-2"
+                  >
+                    <AlertCircle className="w-4 h-4 text-rose-500 mt-0.5 shrink-0" />
+                    <div>{submissionError}</div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <button 
                 onClick={handleProceedToPayment}
