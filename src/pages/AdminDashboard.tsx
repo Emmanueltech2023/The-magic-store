@@ -538,6 +538,8 @@ const ProductForm = () => {
   const navigate = useNavigate();
   const [images, setImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [variantsList, setVariantsList] = useState<any[]>([]);
+
   // Added original_price property to state object
   const [formData, setFormData] = useState({ 
     name: '', 
@@ -563,11 +565,33 @@ const ProductForm = () => {
             description: data.description || '' 
           });
           setImages(data.images || []);
+          setVariantsList(Array.isArray(data.variants) ? data.variants : []);
         }
       };
       fetchProduct();
     }
   }, [id]);
+
+  const handleAddVariant = () => {
+    setVariantsList([
+      ...variantsList,
+      {
+        id: `v-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        name: '',
+        description: '',
+        price: formData.price ? parseFloat(formData.price) : 0,
+        image: images[0] || ''
+      }
+    ]);
+  };
+
+  const handleUpdateVariant = (variantId: string, fields: any) => {
+    setVariantsList(variantsList.map(v => v.id === variantId ? { ...v, ...fields } : v));
+  };
+
+  const handleRemoveVariant = (variantId: string) => {
+    setVariantsList(variantsList.filter(v => v.id !== variantId));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -582,7 +606,8 @@ const ProductForm = () => {
       stock: parseInt(formData.stock) || 0,
       description: formData.description,
       images: images,
-      is_available: true
+      is_available: true,
+      variants: variantsList.length > 0 ? variantsList : null
     };
 
     const { error } = id 
@@ -599,12 +624,14 @@ const ProductForm = () => {
 
 const authenticator = async () => {
   try {
-    const isProd = (import.meta as any).env.PROD;
     const supabaseUrl = 'https://vrcpgcfsxpfnbqvdjobw.supabase.co'; 
     
-    const url = isProd 
-      ? `${supabaseUrl}/functions/v1/imagekit-auth`
-      : 'http://localhost:54321/functions/v1/imagekit-auth';
+    const isUsingLocalSupabaseCLI = false; 
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
+    const url = (isLocalhost && isUsingLocalSupabaseCLI)
+      ? 'http://localhost:54321/functions/v1/imagekit-auth'
+      : `${supabaseUrl}/functions/v1/imagekit-auth`;
 
     const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
 
@@ -622,13 +649,13 @@ const authenticator = async () => {
 
     return await res.json();
   } catch (err) {
-    // We catch the error silently here so it never shows up in your browser console
+    // Silenced once again to keep your browser console perfectly clean
     return { error: true };
   }
 };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto pb-16">
       <div className="flex items-center gap-4 mb-10">
         <button onClick={() => navigate(-1)} className="p-3 bg-white rounded-2xl border border-slate-200 text-slate-500">
           <ChevronRight className="w-5 h-5 rotate-180" />
@@ -683,7 +710,7 @@ const authenticator = async () => {
           <div className="bg-white p-8 rounded-[40px] soft-shadow border border-slate-100">
              <div className="flex justify-between mb-6">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-2">Gallery</label>
-                <span className="text-[10px] bg-primary/10 text-primary px-3 py-1 rounded-full font-bold">{images.length}/4</span>
+                <span className="text-[10px] bg-primary/10 text-primary px-3 py-1 rounded-full font-bold">{images.length}/10</span>
              </div>
              <div className="grid grid-cols-2 gap-4">
                 {images.map((img, i) => (
@@ -692,7 +719,7 @@ const authenticator = async () => {
                     <button type="button" onClick={() => setImages(images.filter((_, idx) => idx !== i))} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full scale-75"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 ))}
-                {images.length < 4 && (
+                {images.length < 10 && (
                   <div className="aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center p-4 relative">
                      <ImageIcon className="w-8 h-8 text-slate-200 mb-2" />
                      <IKContext publicKey={(import.meta as any).env.VITE_IMAGEKIT_PUBLIC_KEY} urlEndpoint={(import.meta as any).env.VITE_IMAGEKIT_URL_ENDPOINT} authenticator={authenticator}>
@@ -702,7 +729,6 @@ const authenticator = async () => {
     setImages([...images, res.url]);
   }}
   onError={(err: any) => {
-    // THIS WILL TELL US EXACTLY WHY IT FAILS ON PRODUCTION
     console.error("ImageKit Upload Error Details:", err);
     alert(`Upload failed: ${err.message || 'Check browser console'}`);
   }} 
@@ -713,6 +739,77 @@ const authenticator = async () => {
                 )}
              </div>
           </div>
+
+          {/* DYNAMIC VARIANT CONFIGURATOR */}
+          <div className="bg-white p-8 rounded-[40px] soft-shadow border border-slate-100 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block ml-1">Sub-Product Choices</label>
+                <span className="text-[10px] text-slate-400 block ml-1 font-medium">Add configurations for specific variants</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddVariant}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-900 hover:text-white rounded-full text-xs font-bold text-slate-700 transition-all flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Option
+              </button>
+            </div>
+
+            {variantsList.length === 0 ? (
+              <div className="text-center py-6 border border-dashed border-slate-100 rounded-2xl bg-slate-50/50">
+                <p className="text-xs text-slate-400 font-medium">No active variants. Saves as standard item.</p>
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+                {variantsList.map((variant, index) => (
+                  <div key={variant.id} className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50 space-y-3 relative">
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveVariant(variant.id)}
+                      className="absolute top-3 right-3 text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+
+                    <span className="text-[9px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded font-bold uppercase tracking-wider">Option #{index + 1}</span>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Style Name</label>
+                        <input required type="text" value={variant.name} placeholder="e.g. Fox Edition" onChange={e => handleUpdateVariant(variant.id, { name: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-primary/20 outline-none text-xs font-medium" />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Variant Price (₦)</label>
+                        <input required type="number" value={variant.price} onChange={e => handleUpdateVariant(variant.id, { price: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-primary/20 outline-none text-xs font-bold" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                      <div className="md:col-span-2">
+                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Variant Description</label>
+                        <input required type="text" value={variant.description} placeholder="Short distinct sub-product info..." onChange={e => handleUpdateVariant(variant.id, { description: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-primary/20 outline-none text-xs" />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Match Image</label>
+                        <select
+                          value={variant.image}
+                          onChange={e => handleUpdateVariant(variant.id, { image: e.target.value })}
+                          className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 outline-none text-xs cursor-pointer truncate"
+                        >
+                          <option value="">No Image</option>
+                          {images.map((img, idx) => (
+                            <option key={idx} value={img}>Pic #{idx + 1}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <button type="submit" disabled={isSubmitting} className="w-full bg-slate-900 text-white h-16 rounded-full font-bold flex items-center justify-center gap-3 transition-all hover:bg-slate-800 disabled:opacity-50">
             {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Package className="w-5 h-5" />}
             {id ? 'Commit Changes' : 'Add Product'}
