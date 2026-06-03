@@ -1,7 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { motion } from 'motion/react';
-import { ShoppingCart, Heart, Sparkle, ArrowLeft, Check, MessageCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+// Lightweight local substitute for `classnames` to avoid external dependency
+const cn = (...args: any[]) => {
+  return args
+    .flatMap((arg) => {
+      if (!arg) return [];
+      if (typeof arg === 'string') return [arg];
+      if (Array.isArray(arg)) return arg;
+      if (typeof arg === 'object') return Object.keys(arg).filter((k) => (arg as any)[k]);
+      return [];
+    })
+    .join(' ');
+};
+import { ShoppingCart, Heart, Sparkle, ArrowLeft, Check, MessageCircle, X } from 'lucide-react';
 import { useCartStore } from '../lib/cartStore';
 import { Skeleton } from '../components/Skeleton';
 import { formatPrice, handleWhatsAppOrder } from '../lib/utils'; 
@@ -17,6 +29,7 @@ export const ProductDetail = () => {
   
   // --- Variant Tracking State ---
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const addItem = useCartStore((state) => state.addItem);
   const toggleWishlist = useWishlistStore((state) => state.toggleItem);
@@ -63,7 +76,6 @@ export const ProductDetail = () => {
   const isSoldOut = product?.is_available === false;
 
   // --- Dynamic Value Fallbacks ---
-  // If a sub-product variant with a custom image/price is active, prioritize it; otherwise, use the root product values.
   const currentPrice = selectedVariant?.price ? selectedVariant.price : product?.price;
   const currentDescription = selectedVariant?.description ? selectedVariant.description : product?.description;
   const currentImage = selectedVariant?.image ? selectedVariant.image : product?.images?.[activeImage];
@@ -72,7 +84,6 @@ export const ProductDetail = () => {
     if (!product || isSoldOut) return;
 
     addItem({
-      // Create a unique composite ID if checking out a specific variant sub-style
       id: selectedVariant ? `${product.id}-${selectedVariant.id}` : product.id,
       name: selectedVariant ? `${product.name} (${selectedVariant.name})` : product.name,
       price: currentPrice,
@@ -116,7 +127,7 @@ export const ProductDetail = () => {
   return (
     <div className="pt-24 pb-20 bg-[#fdf8f7]/30 min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-2 mb-10">
+        <div className="flex items-center gap-2 mb-6 lg:mb-10">
           <Link to="/shop" className="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors text-sm font-medium">
              <ArrowLeft className="w-4 h-4" />
              Back to Shop
@@ -125,10 +136,12 @@ export const ProductDetail = () => {
           <span className="text-primary font-bold text-xs tracking-widest uppercase">{product.category}</span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
-          {/* Left Column: Image Presenter */}
-          <div className="space-y-6">
-            <motion.div className={`relative aspect-square md:aspect-[4/5] rounded-[40px] overflow-hidden bg-white border border-slate-100 shadow-2xl shadow-black/5 ${isSoldOut ? 'opacity-80' : ''}`}>
+        {/* Clean Outer Grid Layout without messy overlapping responsive configs */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-20 items-start relative">
+          
+          {/* Left Column: Image Presenter (Clean, standard stacking flow on mobile) */}
+          <div className="lg:sticky lg:top-24 space-y-4 lg:space-y-6 w-full">
+            <motion.div className={`relative aspect-square md:aspect-[4/5] rounded-[24px] sm:rounded-[40px] overflow-hidden bg-white border border-slate-100 shadow-xl lg:shadow-2xl shadow-black/5 ${isSoldOut ? 'opacity-80' : ''}`}>
               {isSoldOut && (
                 <div className="absolute inset-0 z-20 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
                   <span className="bg-rose-600 text-white font-black px-8 py-3 rotate-[-10deg] shadow-xl uppercase tracking-widest text-lg">
@@ -137,24 +150,23 @@ export const ProductDetail = () => {
                 </div>
               )}
               {!isSoldOut && product.hasDiscount && !product.hasVariants && (
-                <div className="absolute top-6 left-6 z-10 bg-rose-500 text-white font-black text-xs px-4 py-1.5 rounded-full shadow-lg shadow-rose-500/30 animate-pulse">
+                <div className="absolute top-4 left-4 lg:top-6 lg:left-6 z-10 bg-rose-500 text-white font-black text-xs px-4 py-1.5 rounded-full shadow-lg shadow-rose-500/30 animate-pulse">
                   -{product.discountPercent}% OFF
                 </div>
               )}
-              {/* Uses currentImage dynamic selector track */}
               <img src={currentImage} alt={product.name} className={`w-full h-full object-cover transition-all duration-300 ${isSoldOut ? 'grayscale' : ''}`} />
             </motion.div>
             
-            {/* Standard Thumbnail Row: Hidden or dimmed manually if a variant image takes over context */}
-            <div className="grid grid-cols-4 gap-4">
+            {/* Standard Thumbnail Row: Fully responsive, stays right below the image */}
+            <div className="grid grid-cols-4 gap-3 sm:gap-4">
               {product.images.map((img: string, idx: number) => (
                 <button 
                   key={idx} 
                   onClick={() => {
-                    setSelectedVariant(null); // Return to default product image view index tracking
+                    setSelectedVariant(null);
                     setActiveImage(idx);
                   }} 
-                  className={`aspect-square rounded-2xl overflow-hidden border-2 transition-all ${activeImage === idx && !selectedVariant ? 'border-primary scale-105' : 'border-transparent opacity-50'}`}
+                  className={`aspect-square rounded-xl sm:rounded-2xl overflow-hidden border-2 transition-all ${activeImage === idx && !selectedVariant ? 'border-primary scale-105' : 'border-transparent opacity-50'}`}
                 >
                   <img src={img} alt={product.name} className="w-full h-full object-cover" />
                 </button>
@@ -162,14 +174,14 @@ export const ProductDetail = () => {
             </div>
           </div>
 
-          {/* Right Column: Information Flow Details */}
-          <div className="flex flex-col">
+          {/* Right Column: Information Flow Details (Completely stripped of negative mobile margins) */}
+          <div className="flex flex-col w-full">
             <div className="mb-8">
               <div className="flex items-center gap-2 text-primary mb-4 font-bold text-[10px] uppercase tracking-[0.3em]">
                 <Sparkle className="w-4 h-4" />
                 <span>Authentic K-Merch</span>
               </div>
-              <h1 className="text-4xl md:text-5xl font-serif text-slate-900 leading-tight mb-6 tracking-tight">{product.name}</h1>
+              <h1 className="text-3xl md:text-5xl font-serif text-slate-900 leading-tight mb-6 tracking-tight">{product.name}</h1>
               
               <div className="inline-flex items-center p-4 rounded-3xl bg-white border border-slate-100/70 soft-shadow gap-4 min-w-[260px] md:min-w-[320px]">
                 <div className="flex flex-col">
@@ -200,30 +212,84 @@ export const ProductDetail = () => {
               </div>
             </div>
 
-            {/* 🌟 NEW OPTION SELECTOR: Only mounts for subcategory listings like Plushies */}
-            {product.hasVariants && (
-              <div className="mb-8 space-y-2.5">
-                <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+            {/* Subproduct Selector Option Board Grid */}
+            {product.variants && product.variants.length > 0 && (
+              <div className="mb-8 space-y-3">
+                <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 ml-1">
                   Select Style / Type <Sparkle className="w-3 h-3 text-primary animate-pulse" />
                 </label>
-                <select
-                  value={selectedVariant?.id || ''}
-                  onChange={(e) => {
-                    const variant = product.variantsList.find((v: any) => v.id === e.target.value);
-                    if (variant) setSelectedVariant(variant);
-                  }}
-                  className="w-full max-w-md px-5 py-4 rounded-2xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 font-bold text-sm text-slate-800 shadow-sm cursor-pointer"
-                >
-                  {product.variantsList.map((v: any) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name} {v.price ? `— ${formatPrice(v.price)}` : ''}
-                    </option>
-                  ))}
-                </select>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md">
+                  {product.variants.map((v: any) => {
+                    const isFinished = v.is_available === false || v.stock === 0;
+                    const isSelected = selectedVariant?.id === v.id;
+
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        disabled={isFinished}
+                        onClick={() => {
+                          setSelectedVariant(v);
+                          setIsModalOpen(true);
+                        }}
+                        className={cn(
+                          "w-full p-4 rounded-2xl border text-left transition-all duration-200 relative overflow-hidden flex flex-col justify-between gap-2 group",
+                          isSelected && !isFinished && "border-slate-900 bg-slate-900 text-white shadow-md shadow-slate-950/10 scale-[1.01]",
+                          !isSelected && !isFinished && "border-slate-100 bg-white hover:border-slate-300 text-slate-800 soft-shadow",
+                          isFinished && "border-slate-200 bg-slate-50/70 text-slate-400 cursor-not-allowed opacity-60 line-through"
+                        )}
+                      >
+                        <div className="w-full pr-4">
+                          <h4 className={cn(
+                            "font-bold text-xs md:text-sm line-clamp-1 transition-colors",
+                            isSelected && !isFinished ? "text-white" : "text-slate-800 group-hover:text-primary",
+                            isFinished && "text-slate-400"
+                          )}>
+                            {v.name}
+                          </h4>
+                          {v.description && (
+                            <p className={cn(
+                              "text-[10px] md:text-xs font-medium line-clamp-1 mt-0.5",
+                              isSelected && !isFinished ? "text-slate-300" : "text-slate-400"
+                            )}>
+                              {v.description}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex justify-between items-end w-full mt-1">
+                          <span className={cn(
+                            "font-black text-xs md:text-sm",
+                            isSelected && !isFinished ? "text-white" : "text-primary"
+                          )}>
+                            {typeof v.price === 'number' ? formatPrice(v.price) : '₦0'}
+                          </span>
+
+                          {isFinished ? (
+                            <span className="text-[8px] font-extrabold uppercase bg-slate-200 text-slate-500 px-2 py-0.5 rounded-md tracking-wider">
+                              Sold Out
+                            </span>
+                          ) : v.stock <= 5 && v.stock > 0 ? (
+                            <span className={cn(
+                              "text-[8px] font-extrabold uppercase px-2 py-0.5 rounded-md tracking-wider animate-pulse",
+                              isSelected ? "bg-white/20 text-white" : "bg-amber-50 text-amber-600"
+                            )}>
+                              Only {v.stock} Left
+                            </span>
+                          ) : null}
+                        </div>
+
+                        {isSelected && !isFinished && (
+                          <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-primary" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
-            {/* Dynamic Description Box updates dynamically */}
             <p className="text-slate-600 leading-relaxed text-lg font-light mb-8 transition-all duration-300">
               {currentDescription}
             </p>
@@ -293,8 +359,98 @@ export const ProductDetail = () => {
               </div>
             </div>
           </div>
+
         </div>
       </div>
+
+      {/* 🌟 Dedicated Subproduct Pop-out Preview Modal Layer */}
+      <AnimatePresence>
+        {isModalOpen && selectedVariant && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            {/* Dark blur backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+
+            {/* Modal Sheet panel */}
+            <motion.div 
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+              className="relative w-full sm:max-w-md bg-white rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl flex flex-col z-10 max-h-[90vh]"
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-5 border-b border-slate-100">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-1">
+                    Style Variant <Sparkle className="w-3 h-3 text-primary" />
+                  </span>
+                  <h3 className="text-lg font-bold text-slate-900 line-clamp-1 mt-0.5">{selectedVariant.name}</h3>
+                </div>
+                <button 
+                  onClick={() => setIsModalOpen(false)}
+                  className="w-9 h-9 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Scrollable Context Panel */}
+              <div className="p-6 overflow-y-auto space-y-5 flex-1">
+                {/* Product Image Frame */}
+                <div className="relative aspect-square w-full rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 shadow-inner">
+                  <img 
+                    src={selectedVariant.image || product.images[0]} 
+                    alt={selectedVariant.name} 
+                    className="w-full h-full object-cover" 
+                  />
+                  {/* Absolute Dynamic Price Badge Overlay */}
+                  <div className="absolute bottom-4 left-4 bg-slate-900/90 backdrop-blur-md text-white font-black px-4 py-2 rounded-xl text-base shadow-lg">
+                    {typeof selectedVariant.price === 'number' ? formatPrice(selectedVariant.price) : formatPrice(product.price)}
+                  </div>
+                </div>
+
+                {/* Sub-variant Description snippet box */}
+                {selectedVariant.description && (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Product Notes</p>
+                    <p className="text-sm text-slate-600 leading-relaxed font-light bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+                      {selectedVariant.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Bottom Section layout shifted above sticky action objects */}
+              <div className="p-5 pb-15 sm:pb-5 border-t border-slate-100 bg-slate-50/50 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="h-14 border border-slate-200 bg-white text-slate-700 font-bold rounded-full flex items-center justify-center hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleAddToCart();
+                    setIsModalOpen(false);
+                  }}
+                  className="h-14 bg-primary text-white font-bold rounded-full flex items-center justify-center gap-2 shadow-md hover:brightness-105 transition-all"
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  Add to Bag
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

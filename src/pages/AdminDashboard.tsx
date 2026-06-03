@@ -580,6 +580,8 @@ const ProductForm = () => {
         name: '',
         description: '',
         price: formData.price ? parseFloat(formData.price) : 0,
+        stock: 0, // Added base stock remaining track value
+        is_available: true, // Default to true when created
         image: images[0] || ''
       }
     ]);
@@ -761,16 +763,29 @@ const authenticator = async () => {
                 <p className="text-xs text-slate-400 font-medium">No active variants. Saves as standard item.</p>
               </div>
             ) : (
-              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+              <div className="space-y-4 max-h-[440px] overflow-y-auto pr-1">
                 {variantsList.map((variant, index) => (
-                  <div key={variant.id} className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50 space-y-3 relative">
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveVariant(variant.id)}
-                      className="absolute top-3 right-3 text-slate-400 hover:text-red-500 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div key={variant.id} className={cn("p-4 rounded-2xl border transition-all space-y-3 relative", (variant.is_available ?? true) ? "bg-slate-50/50 border-slate-100" : "bg-slate-100/40 border-slate-200/60 opacity-75")}>
+                    
+                    <div className="absolute top-3 right-3 flex items-center gap-2">
+                      {/* Sub-Product Availability Toggle Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateVariant(variant.id, { is_available: !(variant.is_available ?? true) })}
+                        className={cn("p-1.5 rounded-lg transition-all", (variant.is_available ?? true) ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100" : "bg-slate-200 text-slate-400 hover:bg-slate-300")}
+                        title={(variant.is_available ?? true) ? "In Stock / Visible" : "Out of Stock / Hidden"}
+                      >
+                        {(variant.is_available ?? true) ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveVariant(variant.id)}
+                        className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
 
                     <span className="text-[9px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded font-bold uppercase tracking-wider">Option #{index + 1}</span>
                     
@@ -785,10 +800,10 @@ const authenticator = async () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-                      <div className="md:col-span-2">
-                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Variant Description</label>
-                        <input required type="text" value={variant.description} placeholder="Short distinct sub-product info..." onChange={e => handleUpdateVariant(variant.id, { description: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-primary/20 outline-none text-xs" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Units in Stock</label>
+                        <input required type="number" min="0" value={variant.stock ?? 0} onChange={e => handleUpdateVariant(variant.id, { stock: parseInt(e.target.value) || 0 })} className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-primary/20 outline-none text-xs font-bold" />
                       </div>
                       <div>
                         <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Match Image</label>
@@ -803,6 +818,11 @@ const authenticator = async () => {
                           ))}
                         </select>
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Variant Description</label>
+                      <input required type="text" value={variant.description} placeholder="Short distinct sub-product info..." onChange={e => handleUpdateVariant(variant.id, { description: e.target.value })} className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-primary/20 outline-none text-xs" />
                     </div>
                   </div>
                 ))}

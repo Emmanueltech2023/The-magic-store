@@ -31,7 +31,7 @@ export const WhatsAppButton = () => {
   const link = `https://wa.me/${whatsappNumber}?text=${message}`;
 
   return (
-    <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end">
+    <div className="fixed bottom-2 right-6 z-[9999] flex flex-col items-end">
       <motion.a
         href={link}
         target="_blank"
