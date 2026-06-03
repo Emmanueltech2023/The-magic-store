@@ -15,6 +15,7 @@ import { cn, formatPrice } from '../lib/utils';
 interface Product {
   id: string; name: string; price: number; category: string;
   stock: number; images: string[]; description: string; is_available: boolean;
+  variants?: any[];
   // Support for active live stock meter fields inside catalog lists
   is_flash_drop?: boolean;
   flash_max_stock?: number;
@@ -484,9 +485,15 @@ const ProductList = () => {
         <h3 className="font-bold text-slate-800 truncate pr-2 text-sm md:text-base">
           {p.name || 'Unnamed Product'}
         </h3>
-        {/* Safely format price */}
+        {/* Safely format price or fall back to lowest variant price */}
         <span className="text-primary font-black text-xs md:text-sm shrink-0">
-          {typeof p.price === 'number' ? formatPrice(p.price) : '₦0'}
+          {typeof p.price === 'number' && p.price > 0 ? (
+            formatPrice(p.price)
+          ) : Array.isArray(p.variants) && p.variants.length > 0 ? (
+            `From ${formatPrice(Math.min(...p.variants.map((v: any) => Number(v.price || 0)).filter((p: number) => p > 0)))}`
+          ) : (
+            '₦0'
+          )}
         </span>
       </div>
       <p className="text-[10px] md:text-xs text-slate-400 mb-4">{p.stock || 0} units</p>
@@ -557,7 +564,7 @@ const ProductForm = () => {
         if (data) {
           setFormData({ 
             name: data.name, 
-            price: data.price.toString(), 
+            price: data.price !== null && data.price !== undefined ? data.price.toString() : '', 
             // Ensures blank cells populate cleanly into text forms instead of printing undefined
             original_price: data.original_price ? data.original_price.toString() : '',
             category: data.category, 
@@ -597,11 +604,18 @@ const ProductForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Safety check: if no base price is entered, they MUST have variants added
+    if (!formData.price && variantsList.length === 0) {
+      alert("Please provide either a base Selling Price or add variant configurations with specific pricing.");
+      return;
+    }
+
     setIsSubmitting(true);
     
     const payload = {
       name: formData.name,
-      price: parseFloat(formData.price),
+      price: formData.price ? parseFloat(formData.price) : null,
       // If the field is left empty, save it as a clean database null value
       original_price: formData.original_price ? parseFloat(formData.original_price) : null,
       category: formData.category,
@@ -676,8 +690,11 @@ const authenticator = async () => {
             {/* TWIN PRICE MARKUP FIELDS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block ml-2">Selling Price (₦)</label>
-                <input type="number" required value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 focus:ring-2 focus:ring-primary/20 outline-none font-bold" />
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block ml-2 flex items-center justify-between">
+                  <span>Selling Price (₦)</span>
+                  {variantsList.length > 0 && <span className="text-[8px] px-1.5 py-0.5 bg-primary/10 text-primary normal-case tracking-normal rounded font-normal">Optional</span>}
+                </label>
+                <input type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} placeholder={variantsList.length > 0 ? "Using variant prices" : "e.g. 15000"} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 focus:ring-2 focus:ring-primary/20 outline-none font-bold" />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block ml-2 flex items-center justify-between">

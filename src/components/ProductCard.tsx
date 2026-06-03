@@ -19,6 +19,7 @@ interface Product {
   flash_max_stock?: number;
   flash_items_sold?: number;
   is_available?: boolean;
+  variants?: any[]; // Added to accept raw variants column data
 }
 
 interface ProductCardProps {
@@ -36,21 +37,41 @@ export const ProductCard = ({ product, flashSale }: ProductCardProps) => {
   const globalDiscountPercent = isGlobalEventActive ? parseInt(flashSale.ad_tag || '0') : 0;
   const isSoldOut = product.is_available === false;
 
+  // --- DYNAMIC VARIANT MINIMUM PRICE RESOLVER ---
+  // Safely check if variants exist with valid pricing figures
+  const getCalculatedBasePrice = () => {
+    if (product.price && Number(product.price) > 0) {
+      return product.price;
+    }
+    if (Array.isArray(product.variants) && product.variants.length > 0) {
+      const variantPrices = product.variants
+        .map((v: any) => Number(v.price || 0))
+        .filter((p: number) => p > 0);
+      if (variantPrices.length > 0) {
+        return Math.min(...variantPrices);
+      }
+    }
+    return 0;
+  };
+
+  const hasSubVariants = Array.isArray(product.variants) && product.variants.length > 0 && (!product.price || Number(product.price) === 0);
+  const calculatedBasePrice = getCalculatedBasePrice();
+
   // Determine pricing values based on whether the flash loop is active
-  const originalDisplayPrice = product.price;
+  const originalDisplayPrice = calculatedBasePrice;
   const currentDisplayPrice = isGlobalEventActive 
     ? originalDisplayPrice * (1 - globalDiscountPercent / 100)
     : originalDisplayPrice;
 
   // Flag true if either a manual product markdown is set OR the global flash sale is live
-  const hasDiscount = (product.originalPrice && product.originalPrice > product.price) || isGlobalEventActive;
+  const hasDiscount = (product.originalPrice && product.originalPrice > calculatedBasePrice) || isGlobalEventActive;
   
   const discountPercent = isGlobalEventActive 
     ? globalDiscountPercent 
-    : (product.originalPrice ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0);
+    : (product.originalPrice ? Math.round(((product.originalPrice - calculatedBasePrice) / product.originalPrice) * 100) : 0);
 
   // Safely calculate remaining stock percentages to prevent dividing by zero errors
- const remainingStock = product.stock ?? 0; 
+  const remainingStock = product.stock ?? 0; 
   
   // Create a visual baseline max scale for your progress bar slider (e.g., 10)
   const maxStockBaseline = 10; 
@@ -62,6 +83,13 @@ export const ProductCard = ({ product, flashSale }: ProductCardProps) => {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     if (isSoldOut) return;
+
+    // If item uses variants, route them to details instead of raw guessing a random subset item
+    if (hasSubVariants && product.variants) {
+      window.location.href = `/product/${product.id}`;
+      return;
+    }
+
     addItem({
       id: product.id,
       name: product.name,
@@ -154,7 +182,12 @@ export const ProductCard = ({ product, flashSale }: ProductCardProps) => {
             {/* Price Layout */}
             <div className="flex flex-col md:flex-row md:items-baseline gap-0.5 md:gap-2 min-w-0">
               <p className="font-display text-base md:text-xl font-bold text-text truncate">
-                {isSoldOut ? 'Sold Out' : formatPrice(currentDisplayPrice)}
+                {isSoldOut 
+                  ? 'Sold Out' 
+                  : hasSubVariants 
+                    ? `From ${formatPrice(currentDisplayPrice)}` 
+                    : formatPrice(currentDisplayPrice)
+                }
               </p>
               {!isSoldOut && hasDiscount && (
                 <span className="text-[11px] md:text-xs font-semibold text-slate-400 line-through decoration-rose-500 decoration-1 truncate">
@@ -188,9 +221,7 @@ export const ProductCard = ({ product, flashSale }: ProductCardProps) => {
                 </span>
               </div>
               
-              {/* Outer Gray Track */}
               <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                {/* Animated Colored Progress Bar */}
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: `${stockPercentage}%` }}

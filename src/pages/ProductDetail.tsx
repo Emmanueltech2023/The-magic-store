@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
+
 // Lightweight local substitute for `classnames` to avoid external dependency
 const cn = (...args: any[]) => {
   return args
@@ -13,6 +14,7 @@ const cn = (...args: any[]) => {
     })
     .join(' ');
 };
+
 import { ShoppingCart, Heart, Sparkle, ArrowLeft, Check, MessageCircle, X } from 'lucide-react';
 import { useCartStore } from '../lib/cartStore';
 import { Skeleton } from '../components/Skeleton';
@@ -76,9 +78,31 @@ export const ProductDetail = () => {
   const isSoldOut = product?.is_available === false;
 
   // --- Dynamic Value Fallbacks ---
-  const currentPrice = selectedVariant?.price ? selectedVariant.price : product?.price;
+  const currentPrice = selectedVariant?.price && Number(selectedVariant.price) > 0 
+    ? selectedVariant.price 
+    : product?.price;
+    
   const currentDescription = selectedVariant?.description ? selectedVariant.description : product?.description;
   const currentImage = selectedVariant?.image ? selectedVariant.image : product?.images?.[activeImage];
+
+  // Helper method to safely calculate dynamic price strings without component panic crashes
+  const renderDynamicPriceMarkup = (variantObj: any) => {
+    if (variantObj && Number(variantObj.price) > 0) {
+      return formatPrice(variantObj.price);
+    }
+    
+    if (product && Array.isArray(product.variants) && product.variants.length > 0) {
+      const validPrices = product.variants
+        .map((v: any) => Number(v.price || 0))
+        .filter((p: number) => p > 0);
+        
+      if (validPrices.length > 0) {
+        return `From ${formatPrice(Math.min(...validPrices))}`;
+      }
+    }
+    
+    return product?.price ? formatPrice(product.price) : '₦0';
+  };
 
   const handleAddToCart = () => {
     if (!product || isSoldOut) return;
@@ -86,7 +110,7 @@ export const ProductDetail = () => {
     addItem({
       id: selectedVariant ? `${product.id}-${selectedVariant.id}` : product.id,
       name: selectedVariant ? `${product.name} (${selectedVariant.name})` : product.name,
-      price: currentPrice,
+      price: currentPrice || 0,
       image: selectedVariant?.image ? selectedVariant.image : product.images[0],
     });
 
@@ -97,7 +121,7 @@ export const ProductDetail = () => {
   const handleWhatsAppChat = async () => {
     if (!product) return;
     const orderName = selectedVariant ? `${product.name} (${selectedVariant.name})` : product.name;
-    await handleWhatsAppOrder(orderName, currentPrice);
+    await handleWhatsAppOrder(orderName, currentPrice || 0);
   };
 
   if (isLoading) {
@@ -136,10 +160,9 @@ export const ProductDetail = () => {
           <span className="text-primary font-bold text-xs tracking-widest uppercase">{product.category}</span>
         </div>
 
-        {/* Clean Outer Grid Layout without messy overlapping responsive configs */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-20 items-start relative">
           
-          {/* Left Column: Image Presenter (Clean, standard stacking flow on mobile) */}
+          {/* Left Column: Image Presenter */}
           <div className="lg:sticky lg:top-24 space-y-4 lg:space-y-6 w-full">
             <motion.div className={`relative aspect-square md:aspect-[4/5] rounded-[24px] sm:rounded-[40px] overflow-hidden bg-white border border-slate-100 shadow-xl lg:shadow-2xl shadow-black/5 ${isSoldOut ? 'opacity-80' : ''}`}>
               {isSoldOut && (
@@ -157,9 +180,9 @@ export const ProductDetail = () => {
               <img src={currentImage} alt={product.name} className={`w-full h-full object-cover transition-all duration-300 ${isSoldOut ? 'grayscale' : ''}`} />
             </motion.div>
             
-            {/* Standard Thumbnail Row: Fully responsive, stays right below the image */}
+            {/* Standard Thumbnail Row */}
             <div className="grid grid-cols-4 gap-3 sm:gap-4">
-              {product.images.map((img: string, idx: number) => (
+              {product.images?.map((img: string, idx: number) => (
                 <button 
                   key={idx} 
                   onClick={() => {
@@ -174,7 +197,7 @@ export const ProductDetail = () => {
             </div>
           </div>
 
-          {/* Right Column: Information Flow Details (Completely stripped of negative mobile margins) */}
+          {/* Right Column: Information Flow Details */}
           <div className="flex flex-col w-full">
             <div className="mb-8">
               <div className="flex items-center gap-2 text-primary mb-4 font-bold text-[10px] uppercase tracking-[0.3em]">
@@ -192,7 +215,7 @@ export const ProductDetail = () => {
                   )}
                   <div className="flex items-baseline gap-2.5">
                     <p className="text-3xl font-display font-black text-slate-900">
-                      {isSoldOut ? 'Sold Out' : formatPrice(currentPrice)}
+                      {isSoldOut ? 'Sold Out' : renderDynamicPriceMarkup(selectedVariant)}
                     </p>
                     {product.hasDiscount && !isSoldOut && !product.hasVariants && (
                       <span className="text-sm font-semibold text-slate-400 line-through decoration-rose-500 decoration-2">
@@ -263,7 +286,7 @@ export const ProductDetail = () => {
                             "font-black text-xs md:text-sm",
                             isSelected && !isFinished ? "text-white" : "text-primary"
                           )}>
-                            {typeof v.price === 'number' ? formatPrice(v.price) : '₦0'}
+                            {v.price && Number(v.price) > 0 ? formatPrice(v.price) : '₦0'}
                           </span>
 
                           {isFinished ? (
@@ -295,7 +318,7 @@ export const ProductDetail = () => {
             </p>
 
             <div className="grid grid-cols-3 gap-3 mb-10">
-              {product.displayDetails.map((detail: any, idx: number) => (
+              {product.displayDetails?.map((detail: any, idx: number) => (
                 <div key={idx} className="bg-white p-4 rounded-3xl border border-slate-100 text-center shadow-sm">
                   <p className="text-[9px] text-slate-400 uppercase tracking-widest font-bold mb-1">{detail.label}</p>
                   <p className="text-xs font-bold text-slate-800">{detail.value}</p>
@@ -319,7 +342,7 @@ export const ProductDetail = () => {
                   onClick={() => product && toggleWishlist({
                     id: selectedVariant ? `${product.id}-${selectedVariant.id}` : product.id,
                     name: selectedVariant ? `${product.name} (${selectedVariant.name})` : product.name,
-                    price: currentPrice,
+                    price: currentPrice || 0,
                     image: currentImage,
                     category: product.category,
                     is_available: product.is_available
@@ -365,92 +388,92 @@ export const ProductDetail = () => {
 
       {/* 🌟 Dedicated Subproduct Pop-out Preview Modal Layer */}
       <AnimatePresence>
-  {isModalOpen && selectedVariant && (
-    <div className="fixed inset-0 z-50 flex items-center sm:items-center justify-center p-0 sm:p-4">
-      {/* Dark blur backdrop */}
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={() => setIsModalOpen(false)}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-      />
+        {isModalOpen && selectedVariant && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Dark blur backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
 
-      {/* Modal Sheet panel */}
-      <motion.div 
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
-        transition={{ type: 'spring', damping: 28, stiffness: 380 }}
-        className="relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col z-10 max-h-[75dvh]"
-      >
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-          <div>
-            <span className="text-[9px] font-black uppercase tracking-widest text-primary flex items-center gap-1">
-              Style Variant <Sparkle className="w-2.5 h-2.5 text-primary" />
-            </span>
-            <h3 className="text-sm font-bold text-slate-900 line-clamp-1 mt-0.5">{selectedVariant.name}</h3>
+            {/* Modal Sheet panel */}
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="relative w-full sm:max-w-md bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col z-10 max-h-[80dvh]"
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-primary flex items-center gap-1">
+                    Style Variant <Sparkle className="w-2.5 h-2.5 text-primary" />
+                  </span>
+                  <h3 className="text-sm font-bold text-slate-900 line-clamp-1 mt-0.5">{selectedVariant.name}</h3>
+                </div>
+                <button 
+                  onClick={() => setIsModalOpen(false)}
+                  className="w-7 h-7 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Scrollable Context Panel */}
+              <div className="p-4 overflow-y-auto space-y-3 flex-1">
+                {/* Compressed Landscape Product Image Frame */}
+                <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden border border-slate-100 bg-slate-50/50 flex items-center justify-center shadow-inner">
+                  <img 
+                    src={selectedVariant.image || product.images[0]} 
+                    alt={selectedVariant.name} 
+                    className="w-full h-full object-contain" 
+                  />
+                  {/* Absolute Dynamic Price Badge Overlay */}
+                  <div className="absolute bottom-2 left-2 bg-slate-900/90 backdrop-blur-md text-white font-bold px-2.5 py-1 rounded-md text-xs shadow-lg">
+                    {renderDynamicPriceMarkup(selectedVariant)}
+                  </div>
+                </div>
+
+                {/* Sub-variant Description snippet box */}
+                {selectedVariant.description && (
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Product Notes</p>
+                    <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100/50">
+                      {selectedVariant.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Bottom Section layout */}
+              <div className="px-4 pt-3 pb-5 sm:pb-3 border-t border-slate-100 bg-white grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="h-10 border border-slate-200 bg-white text-slate-600 font-bold rounded-full flex items-center justify-center hover:bg-slate-50 transition-colors text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleAddToCart();
+                    setIsModalOpen(false);
+                  }}
+                  className="h-10 bg-primary text-white font-bold rounded-full flex items-center justify-center gap-1.5 shadow-sm hover:brightness-105 transition-all text-xs"
+                >
+                  <ShoppingCart className="w-3.5 h-3.5" />
+                  Add to Bag
+                </button>
+              </div>
+            </motion.div>
           </div>
-          <button 
-            onClick={() => setIsModalOpen(false)}
-            className="w-7 h-7 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 hover:bg-slate-100 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Scrollable Context Panel */}
-        <div className="p-4 overflow-y-auto space-y-3 flex-1">
-          {/* Compressed Landscape Product Image Frame */}
-        <div className="relative aspect-[4/3] w-full rounded-lg overflow-hidden border border-slate-100 bg-slate-50/50 flex items-center justify-center shadow-inner">
-  <img 
-    src={selectedVariant.image || product.images[0]} 
-    alt={selectedVariant.name} 
-    className="w-full h-full object-contain" 
-  />
-  {/* Absolute Dynamic Price Badge Overlay */}
-  <div className="absolute bottom-2 left-2 bg-slate-900/90 backdrop-blur-md text-white font-bold px-2.5 py-1 rounded-md text-xs shadow-lg">
-    {typeof selectedVariant.price === 'number' ? formatPrice(selectedVariant.price) : formatPrice(product.price)}
-  </div>
-</div>
-
-          {/* Sub-variant Description snippet box */}
-          {selectedVariant.description && (
-            <div className="space-y-1">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Product Notes</p>
-              <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100/50">
-                {selectedVariant.description}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Action Bottom Section layout */}
-        <div className="px-4 pt-3 pb-6 sm:pb-3 border-t border-slate-100 bg-white grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={() => setIsModalOpen(false)}
-            className="h-10 border border-slate-200 bg-white text-slate-600 font-bold rounded-full flex items-center justify-center hover:bg-slate-50 transition-colors text-xs"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              handleAddToCart();
-              setIsModalOpen(false);
-            }}
-            className="h-10 bg-primary text-white font-bold rounded-full flex items-center justify-center gap-1.5 shadow-sm hover:brightness-105 transition-all text-xs"
-          >
-            <ShoppingCart className="w-3.5 h-3.5" />
-            Add to Bag
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  )}
-</AnimatePresence>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
