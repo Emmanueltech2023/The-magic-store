@@ -130,12 +130,15 @@ export const Home = () => {
     const fetchHomeData = async () => {
       setIsLoading(true);
       try {
+        // 🛠️ CHANGED: Added `.ilike('category', '%plushies%')` to specifically find items containing "plushies"
+        // Also bumped limit to 50 so we fetch a deeper pool to randomly shuffle from.
         const { data, error } = await supabase
           .from('products')
           .select('*')
           .eq('is_available', true) 
           .gt('stock', 0)
-          .limit(20);
+          .ilike('category', '%plushies%')
+          .limit(50);
 
         if (error) throw error;
         if (data) {
@@ -143,6 +146,7 @@ export const Home = () => {
             ...p,
             image: p.images?.[0] || 'https://via.placeholder.com/400' 
           }));
+          // Shuffles the fetched plushies dynamically and clips out the top 8 items
           setFeaturedProducts(shuffleArray(mappedData).slice(0, 8));
         }
       } catch (err) {
@@ -221,10 +225,10 @@ export const Home = () => {
           <div className="text-center mb-16">
             <div className="flex items-center justify-center gap-2 text-primary mb-4 font-bold text-sm tracking-widest uppercase">
               <Sparkle className="w-4 h-4" />
-              <span>The Magic Chow</span>
+              <span>BT21 & K-Pop Magic</span>
             </div>
-            <h2 className="text-2xl md:text-5xl font-display font-bold mb-6 text-slate-900">K-Food Favorites</h2>
-            <p className="text-slate-600 max-w-2xl mx-auto">Authentic flavors delivered straight from Seoul.</p>
+            <h2 className="text-2xl md:text-5xl font-display font-bold mb-6 text-slate-900">Plushie Favorites</h2>
+            <p className="text-slate-600 max-w-2xl mx-auto">Soft, huggable companions directly from the BTS Universe.</p>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
@@ -237,15 +241,14 @@ export const Home = () => {
               ))
             ) : featuredProducts.length > 0 ? (
               featuredProducts.map((product) => (
-                // 👇 CONNECTED: Forwarding the live flashSale data context rule directly into your featured cards row loop
                 <ProductCard key={product.id} product={product} flashSale={flashSale} />
               ))
             ) : (
-              <div className="col-span-full text-center py-20">No products found.</div>
+              <div className="col-span-full text-center py-20">No plushies found.</div>
             )}
           </div>
-          <Link to="/shop" className="inline-flex items-center gap-2 bg-primary text-white py-2 px-4 rounded-lg hover:bg-primary/90 transition-colors text-sm font-bold mt-8 ">
-            View All <ArrowRight className="w-4 h-4" />
+          <Link to="/shop?category=Plushies" className="inline-flex items-center gap-2 bg-primary text-white py-2 px-4 rounded-lg hover:bg-primary/90 transition-colors text-sm font-bold mt-8 ">
+            View All Plushies <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       </section>

@@ -6,10 +6,10 @@ import { Sparkles } from 'lucide-react';
 export const Hero = () => {
   return (
     /* RESPONSIVE HEIGHT: 
-        Using h-screen on mobile and h-[85vh] on desktop ensures it feels full-screen 
-        without being too large on high-res monitors. 
+        Normalized min-height scaling parameters prevent the container from 
+        over-extending downward and forcing content away from the navigation plane.
     */
-    <section className="relative h-screen min-h-[600px] md:h-[85vh] md:min-h-[700px] flex items-center overflow-hidden bg-brand-background">
+    <section className="relative h-screen min-h-[560px] md:h-[80vh] md:min-h-[600px] lg:h-[85vh] flex items-center overflow-hidden bg-brand-background">
       
       {/* BACKGROUND LAYER */}
       <div className="absolute inset-0 z-0">
@@ -21,7 +21,8 @@ export const Hero = () => {
         <div className="absolute inset-0 bg-gradient-to-b from-brand-background/90 via-brand-background/60 to-brand-background/90 md:bg-gradient-to-r md:from-brand-background/95 md:via-brand-background/70 md:to-transparent" />
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 sm:px-12 grid grid-cols-12 gap-0 relative z-10 w-full pt-8 md:pt-12">
+      {/* 🛠️ FIX: Cleaned inner layout padding parameters to prevent massive layout shifts */}
+      <div className="max-w-7xl mx-auto px-6 sm:px-12 grid grid-cols-12 gap-0 relative z-10 w-full pt-2 md:pt-0">
         
         {/* TEXT CONTENT */}
         <div className="col-span-12 lg:col-span-5 flex flex-col justify-center text-center lg:text-left items-center lg:items-start">

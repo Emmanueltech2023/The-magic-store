@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { 
   BarChart3, Package, Plus, LogOut, Edit2, Trash2, 
-  ChevronRight, Image as ImageIcon, Loader2, Sparkles, Menu, 
+  ChevronRight, ChevronLeft, Image as ImageIcon, Loader2, Sparkles, Menu, 
   Eye, EyeOff, ShoppingBag, CheckCircle2, XCircle, Clock, TrendingUp,
-  PieChart, Wallet, User, X, Radio, Hourglass
+  PieChart, Wallet, User, X, Radio, Hourglass, Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
@@ -12,20 +12,40 @@ import { IKUpload, IKContext } from 'imagekitio-react';
 import { cn, formatPrice } from '../lib/utils';
 
 // --- Types ---
+interface Variant {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  stock: number;
+  is_available: boolean;
+  image: string;
+}
+
 interface Product {
-  id: string; name: string; price: number; category: string;
-  stock: number; images: string[]; description: string; is_available: boolean;
-  variants?: any[];
-  // Support for active live stock meter fields inside catalog lists
+  id: string; 
+  name: string; 
+  price: number | null; 
+  original_price?: number | null;
+  category: string;
+  stock: number; 
+  images: string[] | null; 
+  description: string | null; 
+  is_available: boolean;
+  variants?: Variant[] | null;
   is_flash_drop?: boolean;
   flash_max_stock?: number;
   flash_items_sold?: number;
 }
 
 interface Order {
-  id: string; created_at: string; product_name: string;
-  customer_name: string; amount: number; 
-  status: 'pending' | 'completed' | 'failed'; is_archived: boolean;
+  id: string; 
+  created_at: string; 
+  product_name: string;
+  customer_name: string; 
+  amount: number; 
+  status: 'pending' | 'completed' | 'failed'; 
+  is_archived: boolean;
 }
 
 export const AdminDashboard = () => {
@@ -77,7 +97,7 @@ export const AdminDashboard = () => {
   return (
    <div className="flex h-screen w-screen bg-slate-50 overflow-hidden">
       
-      {/* Mobile Header (Visible only on mobile) */}
+      {/* Mobile Header */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-slate-200 z-[60] px-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-primary" />
@@ -89,7 +109,6 @@ export const AdminDashboard = () => {
       </div>
 
       {/* FIXED SIDEBAR - DESKTOP */}
-      {/* 2. Added fixed positioning + explicit viewport height dimensions */}
       <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 md:left-0 bg-white border-r border-slate-200 z-30 h-screen">
         <SidebarContent />
       </aside>
@@ -115,7 +134,6 @@ export const AdminDashboard = () => {
       </AnimatePresence>
 
       {/* SCROLLABLE MAIN CONTENT AREA */}
-      {/* 3. Shifted content to account for the fixed left layout offset */}
       <div className="flex flex-col flex-1 min-w-0 overflow-y-auto md:pl-64">
         <main className="flex-grow p-4 md:p-8 lg:p-12 mt-16 md:mt-0 w-full max-w-7xl mx-auto">
           <Routes>
@@ -136,32 +154,99 @@ export const AdminDashboard = () => {
 const DashboardHome = () => {
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [productImages, setProductImages] = useState<Record<string, string>>({});
   const [counts, setCounts] = useState({ totalRevenue: 0, totalProducts: 0, pending: 0 });
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
-    const { data: ordersData } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-    const { count: productCount } = await supabase.from('products').select('*', { count: 'exact', head: true });
-    
-    if (ordersData) {
-      setOrders(ordersData);
-      const totalRev = ordersData.filter(o => o.status === 'completed').reduce((acc, curr) => acc + curr.amount, 0);
-      const pendingOrders = ordersData.filter(o => o.status === 'pending' && !o.is_archived).length;
-      setCounts({ totalRevenue: totalRev, totalProducts: productCount || 0, pending: pendingOrders });
+    try {
+      const { data: ordersData } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      const { count: productCount } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true });
+      
+      if (ordersData) {
+        setOrders(ordersData);
+        
+        const totalRev = ordersData
+          .filter(o => o.status === 'completed')
+          .reduce((acc, curr) => acc + curr.amount, 0);
+          
+        const pendingOrders = ordersData
+          .filter(o => o.status === 'pending' && !o.is_archived).length;
+          
+        setCounts({ totalRevenue: totalRev, totalProducts: productCount || 0, pending: pendingOrders });
+
+        const activeOrders = ordersData.filter(o => !o.is_archived);
+        const allProductNames = new Set<string>();
+
+        activeOrders.forEach(o => {
+          if (o.product_name) {
+            o.product_name.split(',').forEach((name: string) => {
+              const trimmedName = name.trim();
+              if (trimmedName) allProductNames.add(trimmedName);
+            });
+          }
+        });
+
+        const uniqueProductNames = Array.from(allProductNames);
+        const lookupMap: Record<string, string> = {};
+
+        if (uniqueProductNames.length > 0) {
+          // 🛠️ FIX: Correctly filtered with .in() to ensure your matching lookups load instantly
+          const { data: productsData } = await supabase
+            .from('products')
+            .select('name, images')
+            .in('name', uniqueProductNames);
+
+          if (productsData) {
+            productsData.forEach(p => {
+              const firstImg = Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : '';
+              if (firstImg && p.name) {
+                lookupMap[p.name.trim().toLowerCase()] = firstImg;
+              }
+            });
+          }
+        }
+        setProductImages(lookupMap);
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard payload:", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData(); 
+  }, []);
 
   const updateOrderStatus = async (id: string, status: string) => {
     const { error } = await supabase.from('orders').update({ status }).eq('id', id);
-    if (!error) fetchData();
+    if (!error) {
+      fetchData();
+      if (selectedOrder && selectedOrder.id === id) {
+        setSelectedOrder(prev => prev ? { ...prev, status: status as any } : null);
+      }
+    }
   };
 
   const archiveOrder = async (id: string) => {
     const { error } = await supabase.from('orders').update({ is_archived: true }).eq('id', id);
-    if (!error) fetchData();
+    if (!error) {
+      fetchData();
+      if (selectedOrder && selectedOrder.id === id) setSelectedOrder(null);
+    }
+  };
+
+  const getProductImage = (name: string): string => {
+    if (!name) return '';
+    return productImages[name.trim().toLowerCase()] || '';
   };
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" /></div>;
@@ -173,27 +258,27 @@ const DashboardHome = () => {
         <p className="text-slate-500 text-sm">Real-time overview of your magical store</p>
       </header>
 
-      {/* Responsive Stats Grid */}
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-  <StatCard 
-    label="Total Revenue" 
-    value={formatPrice(counts.totalRevenue)} 
-    color="bg-emerald-500" //  Cleaned text color override string
-    icon={Wallet} 
-  />
-  <StatCard 
-    label="Total Products" 
-    value={counts.totalProducts} 
-    color="bg-blue-600" //  Cleaned text color override string
-    icon={Package} 
-  />
-  <StatCard 
-    label="Pending Orders" 
-    value={counts.pending} 
-    color="bg-orange-500" //  Cleaned text color override string
-    icon={Clock} 
-  />
-</div>
+        <StatCard 
+          label="Total Revenue" 
+          value={formatPrice(counts.totalRevenue)} 
+          color="bg-emerald-500" 
+          icon={Wallet} 
+        />
+        <StatCard 
+          label="Total Products" 
+          value={counts.totalProducts} 
+          color="bg-blue-600" 
+          icon={Package} 
+        />
+        <StatCard 
+          label="Pending Orders" 
+          value={counts.pending} 
+          color="bg-orange-500" 
+          icon={Clock} 
+        />
+      </div>
 
       <div className="bg-white rounded-[32px] md:rounded-[40px] p-6 md:p-8 border border-slate-100 shadow-sm">
         <h3 className="font-bold text-lg mb-6 flex items-center gap-2">Live Order Stream</h3>
@@ -206,54 +291,224 @@ const DashboardHome = () => {
               <p className="text-slate-400 font-medium">All caught up! No active requests.</p>
             </div>
           ) : (
-            orders.filter(o => !o.is_archived).map(order => (
-              <div key={order.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-slate-50 rounded-[24px] gap-4 border border-slate-100/50">
-                <div className="flex gap-4 items-center min-w-0">
-                  <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm", 
-                    order.status === 'completed' ? "bg-emerald-500 text-white" : "bg-orange-500 text-white"
-                  )}>
-                    <ShoppingBag className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                      <p className="font-bold text-slate-900 truncate uppercase tracking-tight">{order.customer_name || 'Anonymous'}</p>
-                      <span className="text-[9px] bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-400 font-mono">ID: {order.id.slice(-6).toUpperCase()}</span>
-                    </div>
-                    <p className="text-xs font-medium text-slate-500 line-clamp-1 mb-1">{order.product_name}</p>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">
-                      {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • <span className="text-primary">{formatPrice(order.amount)}</span>
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2 sm:gap-4 justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0">
-                   <div className={cn("px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.1em] border", 
-                    order.status === 'completed' ? "bg-emerald-50 border-emerald-100 text-emerald-600" : "bg-orange-50 border-orange-100 text-orange-600"
-                  )}>
-                    {order.status}
-                  </div>
+            orders.filter(o => !o.is_archived).map(order => {
+              const subProductNames = order.product_name 
+                ? order.product_name.split(',').map(n => n.trim()).filter(Boolean)
+                : [];
+              
+              const validImages = subProductNames
+                .map(name => getProductImage(name))
+                .filter(Boolean);
 
-                  <div className="flex gap-2">
-                    {order.status === 'pending' ? (
-                      <>
-                        <button onClick={() => updateOrderStatus(order.id, 'completed')} className="h-9 px-4 bg-emerald-500 text-white rounded-xl text-[10px] font-bold shadow-lg shadow-emerald-100 transition-transform active:scale-95">Verify</button>
-                        <button onClick={() => archiveOrder(order.id)} className="h-9 w-9 flex items-center justify-center bg-white text-slate-400 rounded-xl border border-slate-200"><Trash2 className="w-4 h-4" /></button>
-                      </>
-                    ) : (
-                      <button onClick={() => archiveOrder(order.id)} className="h-9 px-4 text-[10px] font-bold text-slate-400 bg-white rounded-xl border border-slate-100">Clear</button>
-                    )}
+              return (
+                <div 
+                  key={order.id} 
+                  onClick={() => setSelectedOrder(order)}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-slate-50 hover:bg-slate-100/70 rounded-[24px] gap-4 border border-slate-100/50 transition-colors cursor-pointer group"
+                >
+                  <div className="flex gap-4 items-center min-w-0">
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 border border-slate-200/60 bg-white shadow-inner flex items-center justify-center relative">
+                      {validImages.length > 0 ? (
+                        <div className={cn(
+                          "w-full h-full grid gap-0.5 bg-slate-200",
+                          validImages.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                        )}>
+                          {validImages.slice(0, 4).map((imgUrl, idx) => (
+                            <img 
+                              key={idx}
+                              src={imgUrl} 
+                              alt="Item preview" 
+                              className={cn(
+                                "w-full h-full object-cover",
+                                validImages.length === 3 && idx === 2 ? "col-span-2" : ""
+                              )}
+                              loading="lazy"
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className={cn("w-full h-full flex items-center justify-center text-slate-400", 
+                          order.status === 'completed' ? "bg-emerald-50/50 text-emerald-500" : "bg-orange-50/50 text-orange-500"
+                        )}>
+                          <ShoppingBag className="w-5 h-5" />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <p className="font-bold text-slate-900 truncate uppercase tracking-tight group-hover:text-primary transition-colors">{order.customer_name || 'Anonymous'}</p>
+                        <span className="text-[9px] bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-400 font-mono">ID: {order.id.slice(-6).toUpperCase()}</span>
+                      </div>
+                      <p className="text-xs font-medium text-slate-500 line-clamp-1 mb-1">{order.product_name}</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">
+                        {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • <span className="text-primary">{formatPrice(order.amount)}</span>
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div 
+                    onClick={(e) => e.stopPropagation()} 
+                    className="flex items-center gap-2 sm:gap-4 justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0"
+                  >
+                     <div className={cn("px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.1em] border", 
+                      order.status === 'completed' ? "bg-emerald-50 border-emerald-100 text-emerald-600" : "bg-orange-50 border-orange-100 text-orange-600"
+                    )}>
+                      {order.status}
+                    </div>
+
+                    <div className="flex gap-2">
+                      {order.status === 'pending' ? (
+                        <>
+                          <button onClick={() => updateOrderStatus(order.id, 'completed')} className="h-9 px-4 bg-emerald-500 text-white rounded-xl text-[10px] font-bold shadow-lg shadow-emerald-100 transition-transform active:scale-95">Verify</button>
+                          <button onClick={() => archiveOrder(order.id)} className="h-9 w-9 flex items-center justify-center bg-white text-slate-400 rounded-xl border border-slate-200"><Trash2 className="w-4 h-4" /></button>
+                        </>
+                      ) : (
+                        <button onClick={() => archiveOrder(order.id)} className="h-9 px-4 text-[10px] font-bold text-slate-400 bg-white rounded-xl border border-slate-100">Clear</button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
+
+      {/* --- INSPECTION MODAL --- */}
+      <AnimatePresence>
+        {selectedOrder && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedOrder(null)}
+              className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+            >
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-[32px] w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden flex flex-col"
+              >
+                {/* Header */}
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                  <div className="flex items-center gap-3">
+                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold",
+                      selectedOrder.status === 'completed' ? "bg-emerald-500" : "bg-orange-500"
+                    )}>
+                      <ShoppingBag className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-base">Order Details</h4>
+                      <p className="text-[11px] font-mono text-slate-400 uppercase">ID: {selectedOrder.id}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setSelectedOrder(null)}
+                    className="p-2 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-slate-600 hover:shadow-sm transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Body Contents */}
+                <div className="p-6 space-y-6 overflow-y-auto max-h-[65vh] no-scrollbar">
+                  
+                  {/* Customer Block */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Customer Details</span>
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+                        {selectedOrder.customer_name ? selectedOrder.customer_name.charAt(0).toUpperCase() : 'A'}
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-800 text-sm">{selectedOrder.customer_name || 'Anonymous Customer'}</p>
+                        <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(selectedOrder.created_at).toLocaleDateString(undefined, { dateStyle: 'medium' })} at {' '}
+                          {new Date(selectedOrder.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Products Breakdowns */}
+                  <div className="space-y-3">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Ordered Products</span>
+                    <div className="space-y-2">
+                      {selectedOrder.product_name?.split(',').map((name, i) => {
+                        const trimmedName = name.trim();
+                        const img = getProductImage(trimmedName);
+                        return (
+                          <div key={i} className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
+                            <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 shrink-0 flex items-center justify-center">
+                              {img ? (
+                                <img src={img} alt={trimmedName} className="w-full h-full object-cover" />
+                              ) : (
+                                <ImageIcon className="w-4 h-4 text-slate-300" />
+                              )}
+                            </div>
+                            <p className="text-xs font-bold text-slate-800 flex-1">{trimmedName}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Accounting Ledger Row */}
+                  <div className="border-t border-dashed border-slate-200 pt-4 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Transaction Amount</span>
+                      <p className="text-2xl font-display font-black text-primary mt-1">{formatPrice(selectedOrder.amount)}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Status</span>
+                      <div className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border inline-block",
+                        selectedOrder.status === 'completed' ? "bg-emerald-50 border-emerald-100 text-emerald-600" : "bg-orange-50 border-orange-100 text-orange-600"
+                      )}>
+                        {selectedOrder.status}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer Controls */}
+                <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-2 justify-end">
+                  {selectedOrder.status === 'pending' ? (
+                    <>
+                      <button 
+                        onClick={() => updateOrderStatus(selectedOrder.id, 'completed')}
+                        className="h-10 px-4 bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-100 transition-transform active:scale-95 flex items-center gap-1.5"
+                      >
+                        <CheckCircle2 className="w-4 h-4" /> Verify Payment
+                      </button>
+                      <button 
+                        onClick={() => archiveOrder(selectedOrder.id)}
+                        className="h-10 px-3 bg-white text-slate-400 rounded-xl border border-slate-200 hover:text-red-500 hover:border-red-200 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  ) : (
+                    <button 
+                      onClick={() => archiveOrder(selectedOrder.id)}
+                      className="h-10 px-5 text-xs font-bold text-slate-500 bg-white rounded-xl border border-slate-200 hover:bg-slate-100 transition-colors"
+                    >
+                      Archive & Clear From Feed
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
-
-
 
 // --- COMPONENT: INSIGHTS VIEW ---
 const InsightsView = () => {
@@ -265,7 +520,6 @@ const InsightsView = () => {
     const fetchInsights = async () => {
       const now = new Date();
       
-      // Setup structural date comparisons
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
 
@@ -274,35 +528,30 @@ const InsightsView = () => {
 
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      // Safe date format fallback for Postgres timestamp queries
       const postgresMonthString = startOfMonth.toISOString().split('T')[0] + ' 00:00:00';
 
       const { data, error } = await supabase
         .from('orders')
         .select('amount, created_at')
         .eq('status', 'completed')
-        .gte('created_at', postgresMonthString); // Cleaned timestamp match
+        .gte('created_at', postgresMonthString);
 
       if (data && data.length > 0) {
         let dailyRev = 0, weeklyRev = 0, monthlyRev = 0;
         let dailyCount = 0, weeklyCount = 0, monthlyCount = 0;
 
-        // Single loop pass processing both values efficiently
         data.forEach(order => {
           const orderDate = new Date(order.created_at);
           const amount = Number(order.amount) || 0;
 
-          // Monthly accumulation
           if (orderDate >= startOfMonth) {
             monthlyRev += amount;
             monthlyCount += 1;
           }
-          // Weekly accumulation
           if (orderDate >= startOfWeek) {
             weeklyRev += amount;
             weeklyCount += 1;
           }
-          // Daily accumulation
           if (orderDate >= startOfDay) {
             dailyRev += amount;
             dailyCount += 1;
@@ -314,7 +563,6 @@ const InsightsView = () => {
       } else {
         if (error) console.error("Error fetching insights:", error);
         
-        // FALLBACK: If your data uses unique timezone layouts, remove the month constraint safely
         const { data: fallbackData } = await supabase
           .from('orders')
           .select('amount, created_at')
@@ -395,7 +643,7 @@ const InsightsView = () => {
   );
 };
 
-// --- UPDATED REUSABLE STAT CARD ---
+// --- REUSABLE STAT CARD ---
 const StatCard = ({ label, value, countLabel, color, icon: Icon }: any) => (
   <div className="bg-white p-8 rounded-[40px] border border-slate-100 soft-shadow flex flex-col justify-between group hover:border-slate-200/80 transition-all duration-300">
     <div>
@@ -412,10 +660,10 @@ const StatCard = ({ label, value, countLabel, color, icon: Icon }: any) => (
 );
 
 
-// --- PRODUCT LIST (Fixed Mobile Delete & Real Logic) ---
-const ProductList = () => {
+// --- PRODUCT LIST ---
+export const ProductList = () => {
   const [products, setProducts] = useState<Product[]>([]);
-  const [searchTerm, setSearchTerm] = useState(''); // Added search state
+  const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -426,11 +674,12 @@ const ProductList = () => {
     setIsLoading(false);
   };
 
-  useEffect(() => { fetchProducts(); }, []);
+  useEffect(() => { 
+    fetchProducts(); 
+  }, []);
 
-  // Filter logic
   const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+    p.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const toggleAvailability = async (id: string, current: boolean) => {
@@ -446,7 +695,6 @@ const ProductList = () => {
 
   return (
     <div className="space-y-8">
-      {/* Search and Action Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-3xl font-display font-bold">Catalog</h2>
         
@@ -467,38 +715,35 @@ const ProductList = () => {
         </div>
       </div>
 
-      {/* Grid: 2 columns on mobile, 3 on desktop */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-       {filteredProducts.map((p) => (
-  <div key={p.id} className="bg-white p-3 md:p-4 rounded-[32px] border border-slate-100 soft-shadow group relative">
-    {/* Use optional chaining for images and a fallback placeholder */}
-    <div className="aspect-square rounded-2xl overflow-hidden mb-4 bg-slate-50 border border-slate-100">
-      <img 
-        src={p.images?.[0] || '/placeholder-image.jpg'} 
-        alt={p.name || 'Product'} 
-        className="w-full h-full object-cover transition-transform group-hover:scale-110" 
-      />
-    </div>
-    
-    <div className="px-1">
-      <div className="flex justify-between items-start mb-1">
-        <h3 className="font-bold text-slate-800 truncate pr-2 text-sm md:text-base">
-          {p.name || 'Unnamed Product'}
-        </h3>
-        {/* Safely format price or fall back to lowest variant price */}
-        <span className="text-primary font-black text-xs md:text-sm shrink-0">
-          {typeof p.price === 'number' && p.price > 0 ? (
-            formatPrice(p.price)
-          ) : Array.isArray(p.variants) && p.variants.length > 0 ? (
-            `From ${formatPrice(Math.min(...p.variants.map((v: any) => Number(v.price || 0)).filter((p: number) => p > 0)))}`
-          ) : (
-            '₦0'
-          )}
-        </span>
-      </div>
-      <p className="text-[10px] md:text-xs text-slate-400 mb-4">{p.stock || 0} units</p>
+        {filteredProducts.map((p) => (
+          <div key={p.id} className="bg-white p-3 md:p-4 rounded-[32px] border border-slate-100 soft-shadow group relative">
+            <div className="aspect-square rounded-2xl overflow-hidden mb-4 bg-slate-50 border border-slate-100">
+              <img 
+                src={p.images?.[0] || '/placeholder-image.jpg'} 
+                alt={p.name || 'Product'} 
+                className="w-full h-full object-cover transition-transform group-hover:scale-110" 
+              />
+            </div>
+            
+            <div className="px-1">
+              <div className="flex justify-between items-start mb-1">
+                <h3 className="font-bold text-slate-800 truncate pr-2 text-sm md:text-base">
+                  {p.name || 'Unnamed Product'}
+                </h3>
+                <span className="text-primary font-black text-xs md:text-sm shrink-0">
+                  {typeof p.price === 'number' && p.price > 0 ? (
+                    formatPrice(p.price)
+                  ) : Array.isArray(p.variants) && p.variants.length > 0 ? (
+                    `From ${formatPrice(Math.min(...p.variants.map((v: any) => Number(v.price || 0)).filter((priceNum: number) => priceNum > 0)))}`
+                  ) : (
+                    '₦0'
+                  )}
+                </span>
+              </div>
+              <p className="text-[10px] md:text-xs text-slate-400 mb-4">{p.stock || 0} units</p>
               
-             <div className="flex gap-2">
+              <div className="flex gap-2">
                 <button 
                   type="button"
                   onClick={(e) => {
@@ -540,21 +785,25 @@ const ProductList = () => {
   );
 };
 
-const ProductForm = () => {
+
+// ============================================================================
+// --- PRODUCT FORM (Dynamic Variant Configuration & Type Adjustments) ---
+// ============================================================================
+export const ProductForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [images, setImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [variantsList, setVariantsList] = useState<any[]>([]);
 
-  // Added original_price property to state object
   const [formData, setFormData] = useState({ 
     name: '', 
     price: '', 
     original_price: '', 
     category: 'K-Drinks', 
     stock: '', 
-    description: '' 
+    description: '',
+    is_negotiable: false // 1. Added state for is_negotiable
   });
 
   useEffect(() => {
@@ -563,13 +812,13 @@ const ProductForm = () => {
         const { data } = await supabase.from('products').select('*').eq('id', id).single();
         if (data) {
           setFormData({ 
-            name: data.name, 
+            name: data.name || '', 
             price: data.price !== null && data.price !== undefined ? data.price.toString() : '', 
-            // Ensures blank cells populate cleanly into text forms instead of printing undefined
-            original_price: data.original_price ? data.original_price.toString() : '',
-            category: data.category, 
-            stock: (data.stock || 0).toString(), 
-            description: data.description || '' 
+            original_price: data.original_price !== null && data.original_price !== undefined ? data.original_price.toString() : '',
+            category: data.category || 'K-Drinks', 
+            stock: (data.stock ?? 0).toString(), 
+            description: data.description || '',
+            is_negotiable: !!data.is_negotiable // 2. Map from database value
           });
           setImages(data.images || []);
           setVariantsList(Array.isArray(data.variants) ? data.variants : []);
@@ -587,8 +836,8 @@ const ProductForm = () => {
         name: '',
         description: '',
         price: formData.price ? parseFloat(formData.price) : 0,
-        stock: 0, // Added base stock remaining track value
-        is_available: true, // Default to true when created
+        stock: 0,
+        is_available: true,
         image: images[0] || ''
       }
     ]);
@@ -605,9 +854,9 @@ const ProductForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Safety check: if no base price is entered, they MUST have variants added
-    if (!formData.price && variantsList.length === 0) {
-      alert("Please provide either a base Selling Price or add variant configurations with specific pricing.");
+    // Check adjusted to allow empty price if explicitly marked negotiable
+    if (!formData.price && variantsList.length === 0 && !formData.is_negotiable) {
+      alert("Please provide either a base Selling Price, add variant configurations, or mark as 'Price on Request'.");
       return;
     }
 
@@ -616,64 +865,60 @@ const ProductForm = () => {
     const payload = {
       name: formData.name,
       price: formData.price ? parseFloat(formData.price) : null,
-      // If the field is left empty, save it as a clean database null value
       original_price: formData.original_price ? parseFloat(formData.original_price) : null,
       category: formData.category,
       stock: parseInt(formData.stock) || 0,
       description: formData.description,
       images: images,
       is_available: true,
-      variants: variantsList.length > 0 ? variantsList : null
+      variants: variantsList.length > 0 ? variantsList : null,
+      is_negotiable: formData.is_negotiable // 3. Included in the saved payload
     };
 
     const { error } = id 
       ? await supabase.from('products').update(payload).eq('id', id)
       : await supabase.from('products').insert([payload]);
 
-    if (!error) navigate('/admin/products');
-    else {
+    if (!error) {
+      navigate('/admin/products');
+    } else {
       console.error(error);
       alert("Error saving: " + error.message);
     }
     setIsSubmitting(false);
   };
 
-const authenticator = async () => {
-  try {
-    const supabaseUrl = 'https://vrcpgcfsxpfnbqvdjobw.supabase.co'; 
-    
-    const isUsingLocalSupabaseCLI = false; 
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    
-    const url = (isLocalhost && isUsingLocalSupabaseCLI)
-      ? 'http://localhost:54321/functions/v1/imagekit-auth'
-      : `${supabaseUrl}/functions/v1/imagekit-auth`;
+  const authenticator = async () => {
+    try {
+      const supabaseUrl = 'https://vrcpgcfsxpfnbqvdjobw.supabase.co'; 
+      const isUsingLocalSupabaseCLI = false; 
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      
+      const url = (isLocalhost && isUsingLocalSupabaseCLI)
+        ? 'http://localhost:54321/functions/v1/imagekit-auth'
+        : `${supabaseUrl}/functions/v1/imagekit-auth`;
 
-    const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+      const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
 
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseAnonKey}`
-      }
-    });
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`
+        }
+      });
 
-    if (!res.ok) {
-      throw new Error(`Auth failed`);
+      if (!res.ok) throw new Error(`Auth failed`);
+      return await res.json();
+    } catch (err) {
+      return { error: true };
     }
-
-    return await res.json();
-  } catch (err) {
-    // Silenced once again to keep your browser console perfectly clean
-    return { error: true };
-  }
-};
+  };
 
   return (
     <div className="max-w-4xl mx-auto pb-16">
       <div className="flex items-center gap-4 mb-10">
-        <button onClick={() => navigate(-1)} className="p-3 bg-white rounded-2xl border border-slate-200 text-slate-500">
+        <button type="button" onClick={() => navigate(-1)} className="p-3 bg-white rounded-2xl border border-slate-200 text-slate-500">
           <ChevronRight className="w-5 h-5 rotate-180" />
         </button>
         <h2 className="text-3xl font-display font-bold">{id ? 'Refine Product' : 'Manifest Product'}</h2>
@@ -687,22 +932,42 @@ const authenticator = async () => {
               <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 focus:ring-2 focus:ring-primary/20 outline-none" />
             </div>
 
-            {/* TWIN PRICE MARKUP FIELDS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block ml-2 flex items-center justify-between">
                   <span>Selling Price (₦)</span>
                   {variantsList.length > 0 && <span className="text-[8px] px-1.5 py-0.5 bg-primary/10 text-primary normal-case tracking-normal rounded font-normal">Optional</span>}
                 </label>
-                <input type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} placeholder={variantsList.length > 0 ? "Using variant prices" : "e.g. 15000"} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 focus:ring-2 focus:ring-primary/20 outline-none font-bold" />
+                <input type="number" disabled={formData.is_negotiable} value={formData.is_negotiable ? '' : formData.price} onChange={e => setFormData({...formData, price: e.target.value})} placeholder={formData.is_negotiable ? "Price on Request" : (variantsList.length > 0 ? "Using variant prices" : "e.g. 15000")} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 focus:ring-2 focus:ring-primary/20 outline-none font-bold disabled:opacity-60" />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block ml-2 flex items-center justify-between">
                   <span>Original Price (₦)</span>
                   <span className="text-[8px] px-1.5 py-0.5 bg-slate-100 text-slate-400 normal-case tracking-normal rounded font-normal">Optional</span>
                 </label>
-                <input type="number" value={formData.original_price} onChange={e => setFormData({...formData, original_price: e.target.value})} placeholder="e.g. 18000" className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 focus:ring-2 focus:ring-primary/20 outline-none font-medium text-slate-500" />
+                <input type="number" disabled={formData.is_negotiable} value={formData.is_negotiable ? '' : formData.original_price} onChange={e => setFormData({...formData, original_price: e.target.value})} placeholder="e.g. 18000" className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 focus:ring-2 focus:ring-primary/20 outline-none font-medium text-slate-500 disabled:opacity-60" />
               </div>
+            </div>
+
+            {/* 4. Added UI Toggle Switch for Negotiable Flag */}
+            <div className="flex items-center justify-between bg-slate-50/50 p-4 rounded-2xl border border-slate-100 ml-1">
+              <div>
+                <span className="text-xs font-bold text-slate-700 block">Negotiable / Price on Request</span>
+                <span className="text-[10px] text-slate-400 block">Hides numerical pricing layout across shop page</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, is_negotiable: !formData.is_negotiable })}
+                className={cn(
+                  "w-12 h-6 rounded-full transition-colors relative outline-none",
+                  formData.is_negotiable ? "bg-primary" : "bg-slate-200"
+                )}
+              >
+                <span className={cn(
+                  "w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all shadow-sm",
+                  formData.is_negotiable ? "left-6" : "left-0.5"
+                )} />
+              </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -713,7 +978,7 @@ const authenticator = async () => {
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block ml-2">Category</label>
                 <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748B%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px_auto] bg-[right_24px_center] bg-no-repeat">
-                  {['K-Drinks', 'K-Foods', 'K-Snacks', 'Cookies', 'Plushies', 'Clothing', 'Accessories', 'Bags & Holders', 'Stationery', 'Others', 'Beauty'].map(cat => <option key={cat}>{cat}</option>)}
+                  {['K-Drinks', 'K-Foods', 'K-Snacks', 'Cookies', 'Plushies', 'Clothing', 'Accessories', 'Bags & Holders', 'Stationery & Decor', 'Cups & Bottles', 'Collectibles', 'Others',].map(cat => <option key={cat}>{cat}</option>)}
                 </select>
               </div>
             </div>
@@ -725,7 +990,9 @@ const authenticator = async () => {
           </div>
         </div>
 
+        {/* ... remaining right column (Gallery, Variants, and Submit button) code matches exactly ... */}
         <div className="space-y-6">
+          {/* Gallery block, Variants block, and Submit button match your original file layout */}
           <div className="bg-white p-8 rounded-[40px] soft-shadow border border-slate-100">
              <div className="flex justify-between mb-6">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-2">Gallery</label>
@@ -743,23 +1010,21 @@ const authenticator = async () => {
                      <ImageIcon className="w-8 h-8 text-slate-200 mb-2" />
                      <IKContext publicKey={(import.meta as any).env.VITE_IMAGEKIT_PUBLIC_KEY} urlEndpoint={(import.meta as any).env.VITE_IMAGEKIT_URL_ENDPOINT} authenticator={authenticator}>
                         <IKUpload 
-  onSuccess={(res: any) => {
-    console.log("Upload Success! URL:", res.url);
-    setImages([...images, res.url]);
-  }}
-  onError={(err: any) => {
-    console.error("ImageKit Upload Error Details:", err);
-    alert(`Upload failed: ${err.message || 'Check browser console'}`);
-  }} 
-  className="absolute inset-0 opacity-0 cursor-pointer"
-/>
+                          onSuccess={(res: any) => {
+                            setImages([...images, res.url]);
+                          }}
+                          onError={(err: any) => {
+                            console.error("ImageKit Upload Error Details:", err);
+                            alert(`Upload failed: ${err.message || 'Check browser console'}`);
+                          }} 
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                        />
                      </IKContext>
                   </div>
                 )}
              </div>
           </div>
 
-          {/* DYNAMIC VARIANT CONFIGURATOR */}
           <div className="bg-white p-8 rounded-[40px] soft-shadow border border-slate-100 space-y-6">
             <div className="flex items-center justify-between">
               <div>
@@ -783,9 +1048,7 @@ const authenticator = async () => {
               <div className="space-y-4 max-h-[440px] overflow-y-auto pr-1">
                 {variantsList.map((variant, index) => (
                   <div key={variant.id} className={cn("p-4 rounded-2xl border transition-all space-y-3 relative", (variant.is_available ?? true) ? "bg-slate-50/50 border-slate-100" : "bg-slate-100/40 border-slate-200/60 opacity-75")}>
-                    
                     <div className="absolute top-3 right-3 flex items-center gap-2">
-                      {/* Sub-Product Availability Toggle Button */}
                       <button
                         type="button"
                         onClick={() => handleUpdateVariant(variant.id, { is_available: !(variant.is_available ?? true) })}
@@ -794,7 +1057,6 @@ const authenticator = async () => {
                       >
                         {(variant.is_available ?? true) ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                       </button>
-
                       <button
                         type="button"
                         onClick={() => handleRemoveVariant(variant.id)}
@@ -805,7 +1067,6 @@ const authenticator = async () => {
                     </div>
 
                     <span className="text-[9px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded font-bold uppercase tracking-wider">Option #{index + 1}</span>
-                    
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Style Name</label>

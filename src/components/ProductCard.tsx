@@ -1,6 +1,6 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { ShoppingCart, Heart } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ShoppingCart, Heart, MessageCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { formatPrice } from '../lib/utils';
 import { useCartStore } from '../lib/cartStore';
@@ -9,7 +9,7 @@ import { useWishlistStore } from '../lib/wishlistStore';
 interface Product {
   id: string;
   name: string;
-  price: number;
+  price: number | null; // Adjusted to match DB structure
   originalPrice?: number; 
   image: string;
   category: string;
@@ -19,7 +19,8 @@ interface Product {
   flash_max_stock?: number;
   flash_items_sold?: number;
   is_available?: boolean;
-  variants?: any[]; // Added to accept raw variants column data
+  is_negotiable?: boolean; 
+  variants?: any[]; 
 }
 
 interface ProductCardProps {
@@ -28,6 +29,7 @@ interface ProductCardProps {
 }
 
 export const ProductCard = ({ product, flashSale }: ProductCardProps) => {
+  const navigate = useNavigate();
   const addItem = useCartStore((state) => state.addItem);
   const toggleWishlist = useWishlistStore((state) => state.toggleItem);
   const isFavorited = useWishlistStore((state) => state.isInWishlist(product.id));
@@ -36,17 +38,25 @@ export const ProductCard = ({ product, flashSale }: ProductCardProps) => {
   const isGlobalEventActive = flashSale?.ad_active === true;
   const globalDiscountPercent = isGlobalEventActive ? parseInt(flashSale.ad_tag || '0') : 0;
   const isSoldOut = product.is_available === false;
+  const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
+
+  // --- 🌟 FIXED NEGOTIABLE / BESPOKE CHECK 🌟 ---
+  // Truly bespoke ONLY if explicitly set, OR if price is empty/zero AND there are no variants
+  const isNegotiable = product.is_negotiable === true || 
+    ((!product.price || Number(product.price) === 0) && !hasVariants);
 
   // --- DYNAMIC VARIANT MINIMUM PRICE RESOLVER ---
-  // Safely check if variants exist with valid pricing figures
   const getCalculatedBasePrice = () => {
+    if (isNegotiable) return 0;
+    
     if (product.price && Number(product.price) > 0) {
-      return product.price;
+      return Number(product.price);
     }
-    if (Array.isArray(product.variants) && product.variants.length > 0) {
-      const variantPrices = product.variants
+    
+    if (hasVariants) {
+      const variantPrices = product.variants!
         .map((v: any) => Number(v.price || 0))
-        .filter((p: number) => p > 0);
+        .filter((priceNum: number) => priceNum > 0);
       if (variantPrices.length > 0) {
         return Math.min(...variantPrices);
       }
@@ -54,7 +64,8 @@ export const ProductCard = ({ product, flashSale }: ProductCardProps) => {
     return 0;
   };
 
-  const hasSubVariants = Array.isArray(product.variants) && product.variants.length > 0 && (!product.price || Number(product.price) === 0);
+  // Flag true if there is no base price but variants exist
+  const hasSubVariants = hasVariants && (!product.price || Number(product.price) === 0);
   const calculatedBasePrice = getCalculatedBasePrice();
 
   // Determine pricing values based on whether the flash loop is active
@@ -64,7 +75,7 @@ export const ProductCard = ({ product, flashSale }: ProductCardProps) => {
     : originalDisplayPrice;
 
   // Flag true if either a manual product markdown is set OR the global flash sale is live
-  const hasDiscount = (product.originalPrice && product.originalPrice > calculatedBasePrice) || isGlobalEventActive;
+  const hasDiscount = !isNegotiable && ((product.originalPrice && product.originalPrice > calculatedBasePrice) || isGlobalEventActive);
   
   const discountPercent = isGlobalEventActive 
     ? globalDiscountPercent 
@@ -72,21 +83,19 @@ export const ProductCard = ({ product, flashSale }: ProductCardProps) => {
 
   // Safely calculate remaining stock percentages to prevent dividing by zero errors
   const remainingStock = product.stock ?? 0; 
-  
-  // Create a visual baseline max scale for your progress bar slider (e.g., 10)
   const maxStockBaseline = 10; 
   const stockPercentage = Math.min(100, (remainingStock / maxStockBaseline) * 100);
 
   // Render the stock meter if the individual product flag is true OR if the global event is active
-  const showStockMeter = !isSoldOut && (product.is_flash_drop || isGlobalEventActive);
+  const showStockMeter = !isSoldOut && !isNegotiable && (product.is_flash_drop || isGlobalEventActive);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     if (isSoldOut) return;
 
-    // If item uses variants, route them to details instead of raw guessing a random subset item
-    if (hasSubVariants && product.variants) {
-      window.location.href = `/product/${product.id}`;
+    // Route to details configuration layout safely for customizable or variable paths
+    if (isNegotiable || hasSubVariants) {
+      navigate(`/product/${product.id}`);
       return;
     }
 
@@ -103,7 +112,7 @@ export const ProductCard = ({ product, flashSale }: ProductCardProps) => {
     toggleWishlist({
       id: product.id,
       name: product.name,
-      price: currentDisplayPrice,
+      price: isNegotiable ? 0 : currentDisplayPrice,
       image: product.image,
       category: product.category,
       is_available: product.is_available
@@ -131,15 +140,21 @@ export const ProductCard = ({ product, flashSale }: ProductCardProps) => {
         )}
 
         {/* Dynamic Responsive Badge */}
-        {!isSoldOut && (hasDiscount ? (
-          <span className="absolute top-2.5 left-2.5 md:top-4 md:left-4 z-10 bg-rose-500 text-white text-[9px] md:text-[10px] font-black px-2 md:px-3 py-1 rounded-full uppercase tracking-widest shadow-md animate-pulse">
-            -{discountPercent}% OFF
-          </span>
-        ) : product.badge ? (
-          <span className="absolute top-2.5 left-2.5 md:top-4 md:left-4 z-10 bg-primary text-white text-[9px] md:text-[10px] font-bold px-2 md:px-3 py-1 rounded-full uppercase tracking-widest shadow-md">
-            {product.badge}
-          </span>
-        ) : null)}
+        {!isSoldOut && (
+          isNegotiable ? (
+            <span className="absolute top-2.5 left-2.5 md:top-4 md:left-4 z-10 bg-amber-500 text-white text-[9px] md:text-[10px] font-black px-2 md:px-3 py-1 rounded-full uppercase tracking-widest shadow-md">
+              Bespoke
+            </span>
+          ) : hasDiscount ? (
+            <span className="absolute top-2.5 left-2.5 md:top-4 md:left-4 z-10 bg-rose-500 text-white text-[9px] md:text-[10px] font-black px-2 md:px-3 py-1 rounded-full uppercase tracking-widest shadow-md animate-pulse">
+              -{discountPercent}% OFF
+            </span>
+          ) : product.badge ? (
+            <span className="absolute top-2.5 left-2.5 md:top-4 md:left-4 z-10 bg-primary text-white text-[9px] md:text-[10px] font-bold px-2 md:px-3 py-1 rounded-full uppercase tracking-widest shadow-md">
+              {product.badge}
+            </span>
+          ) : null
+        )}
 
         {/* Wishlist Button */}
         <button 
@@ -178,36 +193,51 @@ export const ProductCard = ({ product, flashSale }: ProductCardProps) => {
         
         {/* Responsive Price/Action Block Wrapper */}
         <div className="flex flex-col gap-3 mt-2 md:mt-4">
-          <div className="flex flex-row items-end justify-between gap-1">
+          <div className="flex flex-row items-center justify-between gap-1">
             {/* Price Layout */}
             <div className="flex flex-col md:flex-row md:items-baseline gap-0.5 md:gap-2 min-w-0">
-              <p className="font-display text-base md:text-xl font-bold text-text truncate">
-                {isSoldOut 
-                  ? 'Sold Out' 
-                  : hasSubVariants 
+              {isSoldOut ? (
+                <p className="font-display text-base md:text-xl font-bold text-text truncate">
+                  Sold Out
+                </p>
+              ) : isNegotiable ? (
+                <span className="text-[11px] md:text-xs font-black text-amber-600 bg-amber-50 px-2.5 py-1 rounded-md uppercase tracking-wider">
+                  Custom Quote
+                </span>
+              ) : (
+                <p className="font-display text-base md:text-xl font-bold text-text truncate">
+                  {hasSubVariants 
                     ? `From ${formatPrice(currentDisplayPrice)}` 
                     : formatPrice(currentDisplayPrice)
-                }
-              </p>
-              {!isSoldOut && hasDiscount && (
+                  }
+                </p>
+              )}
+              
+              {!isSoldOut && hasDiscount && !isNegotiable && (
                 <span className="text-[11px] md:text-xs font-semibold text-slate-400 line-through decoration-rose-500 decoration-1 truncate">
                   {formatPrice(isGlobalEventActive ? originalDisplayPrice : product.originalPrice!)}
                 </span>
               )}
             </div>
 
-            {/* Compact Shopping Cart Button */}
+            {/* Dynamic Action Button Desk */}
             <button 
               onClick={handleAddToCart}
               disabled={isSoldOut}
               className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl transition-all shrink-0 active:scale-95 ${
                 isSoldOut 
                   ? 'bg-secondary/10 text-slate-300 cursor-not-allowed' 
-                  : 'bg-secondary/20 text-primary hover:bg-primary hover:text-white'
+                  : isNegotiable
+                    ? 'bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366] hover:text-white'
+                    : 'bg-secondary/20 text-primary hover:bg-primary hover:text-white'
               }`}
-              aria-label="Add to cart"
+              aria-label={isNegotiable ? "Inquire layout pricing options" : "Add to cart"}
             >
-              <ShoppingCart className="w-4 h-4 md:w-5 md:h-5" />
+              {isNegotiable ? (
+                <MessageCircle className="w-4 h-4 md:w-5 md:h-5 fill-current" />
+              ) : (
+                <ShoppingCart className="w-4 h-4 md:w-5 md:h-5" />
+              )}
             </button>
           </div>
 
