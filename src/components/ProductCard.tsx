@@ -143,7 +143,7 @@ export const ProductCard = ({ product, flashSale }: ProductCardProps) => {
         {!isSoldOut && (
           isNegotiable ? (
             <span className="absolute top-2.5 left-2.5 md:top-4 md:left-4 z-10 bg-amber-500 text-white text-[9px] md:text-[10px] font-black px-2 md:px-3 py-1 rounded-full uppercase tracking-widest shadow-md">
-              Bespoke
+              Negotiable
             </span>
           ) : hasDiscount ? (
             <span className="absolute top-2.5 left-2.5 md:top-4 md:left-4 z-10 bg-rose-500 text-white text-[9px] md:text-[10px] font-black px-2 md:px-3 py-1 rounded-full uppercase tracking-widest shadow-md animate-pulse">
@@ -202,7 +202,7 @@ export const ProductCard = ({ product, flashSale }: ProductCardProps) => {
                 </p>
               ) : isNegotiable ? (
                 <span className="text-[11px] md:text-xs font-black text-amber-600 bg-amber-50 px-2.5 py-1 rounded-md uppercase tracking-wider">
-                  Custom Quote
+                  Custom Order
                 </span>
               ) : (
                 <p className="font-display text-base md:text-xl font-bold text-text truncate">
