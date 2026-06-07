@@ -62,8 +62,8 @@ export const Shop = () => {
 
   const categories = [
     'All', 'Plushies', 'Cups & Bottles', 'Accessories', 'Cookies', 
-    'Bags & Holders', 'K-Drinks', 'Clothing', 'K-Snacks', 
-    'Stationery & Decor', 'K-Foods', 'Collectibles', 'Others'
+    'Bags & Holders', 'Merch Gift & Boxes', 'Chopsticks', 'K-Drinks', 'Clothing', 'K-Snacks', 
+    'Stationery & Decor', 'K-Foods', 'Collectibles'
   ];
 
   // --- 1. Data Fetch Engine ---
