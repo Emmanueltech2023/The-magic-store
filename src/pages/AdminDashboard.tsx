@@ -4,7 +4,7 @@ import {
   BarChart3, Package, Plus, LogOut, Edit2, Trash2, 
   ChevronRight, ChevronLeft, Image as ImageIcon, Loader2, Sparkles, Menu, 
   Eye, EyeOff, ShoppingBag, CheckCircle2, XCircle, Clock, TrendingUp,
-  PieChart, Wallet, User, X, Radio, Hourglass, Calendar
+  PieChart, Wallet, User, X, Radio, Hourglass, Calendar,Star, CheckCircle, ShieldAlert, Filter, ListOrdered, MessageSquare, MessageSquarePlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
@@ -73,6 +73,7 @@ export const AdminDashboard = () => {
           { to: '/admin/insights', label: 'Insights', icon: PieChart, active: location.pathname === '/admin/insights' },
           { to: '/admin/products', label: 'Inventory', icon: Package, active: location.pathname.includes('/admin/products') },
           { to: '/admin/marketing', label: 'Urgency & Ads', icon: Sparkles, active: location.pathname === '/admin/marketing' },
+          { to: '/admin/reviews', label: 'Reviews Moderation', icon: MessageSquare, active: location.pathname === '/admin/reviews' },
         ].map((link) => (
           <Link 
             key={link.to}
@@ -143,6 +144,7 @@ export const AdminDashboard = () => {
             <Route path="products/new" element={<ProductForm />} />
             <Route path="products/edit/:id" element={<ProductForm />} />
             <Route path="marketing" element={<AdsManager />} />
+            <Route path="reviews" element={<AdminReviews />} />
           </Routes>
         </main>
       </div>
@@ -1431,6 +1433,197 @@ const MagicHourAdminPanel = () => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+
+
+export const AdminReviews = () => {
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // 🛠️ CONTROL FILTERS: Toggles between 'all', 'pending', and 'live'
+  const [filterTab, setFilterTab] = useState<'all' | 'pending' | 'live'>('all');
+
+  const fetchAdminReviews = async () => {
+    setLoading(true);
+    try {
+      // Automatically sorts by 'created_at' descending (Newest First)
+      const { data, error } = await supabase
+        .from('reviews')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setReviews(data || []);
+    } catch (err) {
+      console.error("Failed to load dashboard reviews.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAdminReviews();
+  }, []);
+
+  const handleToggleApproval = async (id: number, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('reviews')
+        .update({ is_approved: !currentStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      setReviews(reviews.map(r => r.id === id ? { ...r, is_approved: !currentStatus } : r));
+    } catch (err) {
+      alert('Error updating status');
+    }
+  };
+
+  const handleDeleteReview = async (id: number) => {
+    if (!window.confirm('Are you absolutely sure you want to completely erase this review? Silly or bad reviews can be permanently deleted here.')) return;
+    try {
+      const { error } = await supabase
+        .from('reviews')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      setReviews(reviews.filter(r => r.id !== id));
+    } catch (err) {
+      alert('Error removing item');
+    }
+  };
+
+  // 🛠️ FILTER LOGIC: Segregates the array on the client side instantly
+  const filteredReviews = reviews.filter(review => {
+    if (filterTab === 'pending') return !review.is_approved;
+    if (filterTab === 'live') return review.is_approved;
+    return true; // 'all'
+  });
+
+  if (loading) {
+    return <div className="p-8 text-sm text-slate-500">Loading master reviews panel grid...</div>;
+  }
+
+  return (
+    <div className="p-6 max-w-6xl mx-auto">
+      <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Manage Customer Reviews</h1>
+          <p className="text-slate-500 text-sm mt-1">
+            Approve genuine feedback or instantly delete silly submissions.
+          </p>
+        </div>
+
+        {/* 🛠️ FILTER TABS CONTROLLER */}
+        <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200/40 self-start md:self-center">
+          <button
+            onClick={() => setFilterTab('all')}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
+              filterTab === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            All ({reviews.length})
+          </button>
+          <button
+            onClick={() => setFilterTab('pending')}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${
+              filterTab === 'pending' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Pending Guard ({reviews.filter(r => !r.is_approved).length})
+          </button>
+          <button
+            onClick={() => setFilterTab('live')}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${
+              filterTab === 'live' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            Live ({reviews.filter(r => r.is_approved).length})
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                <th className="p-4">Customer</th>
+                <th className="p-4">Rating</th>
+                <th className="p-4 w-1/2">Review Message</th>
+                <th className="p-4">Status</th>
+                <th className="p-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-sm">
+              {filteredReviews.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-slate-400">
+                    No reviews fit this filter right now.
+                  </td>
+                </tr>
+              ) : (
+                filteredReviews.map((review) => (
+                  <tr key={review.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="p-4">
+                      <div className="font-semibold text-slate-900">{review.name}</div>
+                      <div className="text-xs text-slate-400">{review.handle || 'No social handle'}</div>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex gap-0.5 text-amber-400">
+                        {Array.from({ length: review.rating }).map((_, i) => (
+                          <Star key={i} className="w-3.5 h-3.5 fill-current" />
+                        ))}
+                      </div>
+                    </td>
+                    <td className="p-4 text-slate-600 leading-relaxed text-xs">
+                      {review.text}
+                    </td>
+                    <td className="p-4">
+                      {review.is_approved ? (
+                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-xs px-2.5 py-1 rounded-full font-medium">
+                          <CheckCircle className="w-3.5 h-3.5" /> Live on Site
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-700 text-xs px-2.5 py-1 rounded-full font-medium">
+                          <ShieldAlert className="w-3.5 h-3.5" /> Blocked / Pending
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => handleToggleApproval(review.id, review.is_approved)}
+                          className={`p-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-1 ${
+                            review.is_approved 
+                              ? 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50' 
+                              : 'bg-primary text-white border-primary hover:bg-primary/95 shadow-md shadow-primary/5'
+                          }`}
+                        >
+                          {review.is_approved ? 'Hide from Site' : 'Approve & Publish'}
+                        </button>
+                        
+                        <button
+                          onClick={() => handleDeleteReview(review.id)}
+                          className="p-2 border border-slate-100 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                          title="Delete Review permanently"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };

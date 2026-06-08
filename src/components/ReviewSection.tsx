@@ -1,83 +1,109 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { Star } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Star, MessageSquarePlus, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import { Skeleton } from './Skeleton'; // Adjust to "../components/Skeleton" if needed
+import { ReviewModal } from './ReviewModal';
 
 export const ReviewSection = () => {
-  // Focuses strictly on grid box spans and theme design colors
-  const getBlockStyles = (size: string) => {
-    switch (size) {
-      case 'large':
-        return 'md:col-span-2 md:row-span-1 bg-primary text-white';
-      case 'medium':
-        return 'md:col-span-1 md:row-span-2 bg-slate-900 text-white';
-      default:
-        return 'md:col-span-1 md:row-span-1 bg-white text-slate-900 border border-slate-100 soft-shadow';
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync window size for mobile layouts
+  useEffect(() => {
+    const checkDevice = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkDevice();
+    window.addEventListener('resize', checkDevice);
+    return () => window.removeEventListener('resize', checkDevice);
+  }, []);
+
+  const fetchReviews = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('is_approved', true)
+        .order('created_at', { ascending: false })
+        .limit(3); // ⚡ Reduced to 3 to keep the homepage incredibly fast
+
+      if (error) throw error;
+      if (data) {
+        const processedReviews = data.map((review, index) => {
+          let theme = 'aesthetic-light';
+          if (index % 3 === 1) theme = 'brand-purple';
+          else if (index % 3 === 2) theme = 'galaxy-dark';
+          return { ...review, theme };
+        });
+        setReviews(processedReviews);
+      }
+    } catch (err) {
+      console.error('Error loading live reviews:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const reviews = [
-    {
-      id: 1,
-      name: "Amina K.",
-      handle: "@amina_writes",
-      text: "Absolutely obsessed with the BT21 stationery set! The pens write like a dream and the notebook paper is incredibly thick. Shipping was super fast to Lagos too!",
-      rating: 5,
-      size: "large",
-      avatar: "https://ik.imagekit.io/pha2ibrpir/default-image.jpg?updatedAt=1778022581033"
-    },
-    {
-      id: 2,
-      name: "David O.",
-      handle: "@dav_tech",
-      text: "The K-Snack box was packed to the brim. Love the variety of spicy ramen!",
-      rating: 5,
-      size: "small",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format&fit=crop"
-    },
-    {
-      id: 3,
-      name: "Chloe M.",
-      handle: "@chlo_collector",
-      text: "Found an authentic plushie I've been hunting for months. 100% genuine merch, pristine condition. Customer service was incredibly helpful with tracking.",
-      rating: 5,
-      size: "medium",
-      avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=200&auto=format&fit=crop"
-    },
-    {
-      id: 4,
-      name: "Tunde W.",
-      handle: "@tunde_j",
-      text: "Clean interface, fast checkouts, and premium packaging. This store sets the standard.",
-      rating: 5,
-      size: "small",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=200&auto=format&fit=crop"
-    },
-    {
-      id: 5,
-      name: "Sarah B.",
-      handle: "@sarah_b",
-      text: "The cups & bottles collection is so aesthetic. Keeps my matcha lattes ice cold all afternoon while I study.",
-      rating: 5,
-      size: "medium",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200&auto=format&fit=crop"
-    },
-    {
-      id: 6,
-      name: "Leo F.",
-      handle: "@leo_fanboy",
-      text: "I was skeptical about buying collectibles online, but the authenticity guarantee gave me confidence. My BTS figure arrived in perfect condition and is now the crown jewel of my collection.",
-      rating: 5,
-      size: "small",
-      avatar: "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?q=80&w=200&auto=format&fit=crop"
+  useEffect(() => {
+    fetchReviews();
+  }, []);
+
+  const resetTimer = () => {
+    if (autoPlayRef.current) clearInterval(autoPlayRef.current);
+    autoPlayRef.current = setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % reviews.length);
+    }, 4000);
+  };
+
+  useEffect(() => {
+    if (!isMobile || reviews.length === 0) return;
+    resetTimer();
+    return () => {
+      if (autoPlayRef.current) clearInterval(autoPlayRef.current);
+    };
+  }, [isMobile, reviews]);
+
+  const handleDragEnd = (event: any, info: any) => {
+    const swipeThreshold = 50;
+    if (info.offset.x < -swipeThreshold) {
+      setActiveIndex((prev) => (prev + 1) % reviews.length);
+      resetTimer();
+    } else if (info.offset.x > swipeThreshold) {
+      setActiveIndex((prev) => (prev - 1 + reviews.length) % reviews.length);
+      resetTimer();
     }
-  ];
+  };
+
+  const handleDotClick = (index: number) => {
+    setActiveIndex(index);
+    resetTimer();
+  };
+
+  const getBlockStyles = (theme: string) => {
+    switch (theme) {
+      case 'brand-purple':
+        return 'bg-primary text-white shadow-xl shadow-primary/20';
+      case 'galaxy-dark':
+        return 'bg-[#181d24] text-white shadow-xl shadow-black/30 border border-slate-800';
+      default:
+        return 'bg-[#ffffff] text-slate-900 border-2 border-purple-200/60 shadow-lg shadow-purple-100/40';
+    }
+  };
 
   return (
-    <section className="py-16 md:py-28 bg-slate-50/50 overflow-hidden">
+    <section className="py-16 md:py-24 bg-[#f5f3fa] overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Header */}
-        <div className="text-center max-w-xl mx-auto mb-16">
+        <div className="text-center max-w-xl mx-auto mb-12">
           <span className="text-xs font-bold text-primary uppercase tracking-widest bg-primary/10 px-4 py-1.5 rounded-full">
             Community Love
           </span>
@@ -89,66 +115,181 @@ export const ReviewSection = () => {
           </p>
         </div>
 
-        {/* Puzzle Bento Grid - FIX: Uses minmax so content dictates height dynamically without breaking layout */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[minmax(180px,_auto)]">
-          {reviews.map((review, idx) => {
-            const isDarkBlock = review.size === 'large' || review.size === 'medium';
+        {/* Content Section */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="bg-white border-2 border-purple-100 rounded-[32px] p-8 space-y-4 h-48">
+                <Skeleton className="h-4 w-1/3 rounded-full bg-purple-100" />
+                <Skeleton className="h-12 w-full rounded-2xl bg-purple-50" />
+              </div>
+            ))}
+          </div>
+        ) : reviews.length > 0 ? (
+          <div className="relative w-full">
             
-            return (
-              <motion.div
-                key={review.id}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ duration: 0.5, delay: idx * 0.1 }}
-                className={`rounded-[36px] p-8 flex flex-col justify-between relative overflow-hidden group min-h-[220px] ${getBlockStyles(review.size)}`}
-              >
-                {/* Visual Accent for Large Theme Blocks */}
-                {review.size === 'large' && (
-                  <div className="absolute top-0 right-0 w-48 h-full bg-white/5 -skew-x-12 pointer-events-none" />
-                )}
+            {/* 📱 MOBILE VIEW: Swipeable Deck Carousel */}
+            {isMobile ? (
+              <div className="relative h-[310px] w-full flex items-center justify-center overflow-hidden touch-pan-y px-4">
+                <AnimatePresence mode="wait">
+                  {reviews.map((review, idx) => {
+                    if (idx !== activeIndex) return null;
+                    const isDarkBlock = review.theme === 'brand-purple' || review.theme === 'galaxy-dark';
 
-                {/* Top Row: Stars & Quote Mark */}
-                <div className="flex justify-between items-center mb-4 shrink-0">
-                  <div className="flex gap-1">
-                    {Array.from({ length: review.rating }).map((_, i) => (
-                      <Star 
-                        key={i} 
-                        className={`w-4 h-4 fill-current ${isDarkBlock ? 'text-amber-300' : 'text-amber-400'}`} 
-                      />
-                    ))}
-                  </div>
-                  <span className={`font-display text-4xl select-none opacity-20 ${isDarkBlock ? 'text-white' : 'text-slate-400'}`}>
-                    “
-                  </span>
-                </div>
+                    return (
+                      <motion.div
+                        key={review.id}
+                        drag="x"
+                        dragConstraints={{ left: 0, right: 0 }}
+                        dragElastic={0.7}
+                        onDragEnd={handleDragEnd}
+                        initial={{ opacity: 0, x: 120 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -120 }}
+                        transition={{ type: "spring", stiffness: 320, damping: 28 }}
+                        className={`w-full max-w-[340px] rounded-[28px] p-7 flex flex-col justify-between absolute overflow-hidden min-h-[260px] active:cursor-grabbing cursor-grab select-none ${getBlockStyles(review.theme)}`}
+                      >
+                        {/* Decorative Assets */}
+                        {review.theme === 'aesthetic-light' && (
+                          <>
+                            <div className="absolute top-0 left-0 w-24 h-24 bg-purple-300/40 rounded-full blur-xl pointer-events-none" />
+                            <div className="absolute bottom-2 left-3 w-12 h-12 opacity-[0.25] text-purple-600 pointer-events-none transform rotate-45">
+                              <svg viewBox="0 0 100 100" fill="currentColor"><path d="M30,90 C45,70 40,40 60,30 C70,25 85,35 80,15 C75,-5 50,5 40,15 C25,30 15,60 30,90 Z" /></svg>
+                            </div>
+                          </>
+                        )}
+                        {review.theme === 'galaxy-dark' && (
+                          <>
+                            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-600/30 via-transparent to-transparent pointer-events-none" />
+                            <div className="absolute top-4 right-6 text-purple-300 text-sm animate-pulse">✦</div>
+                          </>
+                        )}
 
-                {/* Review Message Text Body - FIX: Removed overflow-y-auto and no-scrollbar */}
-                <p className={`text-sm md:text-base font-light leading-relaxed mb-6 flex-grow ${
-                  review.size === 'large' ? 'md:text-lg text-white/90' : isDarkBlock ? 'text-white/80' : 'text-slate-600'
-                }`}>
-                  {review.text}
-                </p>
+                        <div>
+                          <div className="flex justify-between items-center mb-3">
+                            <span className={`font-display text-4xl select-none leading-none opacity-20 ${isDarkBlock ? 'text-white' : 'text-primary'}`}>“</span>
+                          </div>
+                          <p className={`text-xs leading-relaxed mb-4 line-clamp-4 ${isDarkBlock ? 'text-slate-100 font-light' : 'text-slate-800 font-medium'}`}>
+                            {review.text}
+                          </p>
+                        </div>
 
-                {/* Bottom Row: Profile Meta */}
-                <div className="flex items-center gap-3 pt-4 border-t border-current/10 shrink-0">
-                  {/* <img 
-                    src={review.avatar} 
-                    alt={review.name} 
-                    className="w-10 h-10 rounded-full object-cover border border-current/20"
-                  /> */}
-                  <div className="text-left">
-                    <h4 className="font-bold text-sm tracking-wide">{review.name}</h4>
-                    <p className={`text-[11px] font-medium ${isDarkBlock ? 'text-white/50' : 'text-slate-400'}`}>
-                      {review.handle}
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
+                        <div className="mt-auto">
+                          <div className={`w-full h-[1px] mb-3 ${isDarkBlock ? 'bg-white/10' : 'bg-purple-200/60'}`} />
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="font-bold text-xs tracking-wide">{review.name}</h4>
+                              <p className={`text-[10px] mt-0.5 ${isDarkBlock ? 'text-purple-200' : 'text-primary'}`}>{review.handle || '@user'}</p>
+                            </div>
+                            <div className="flex gap-0.5">
+                              {Array.from({ length: review.rating }).map((_, i) => (
+                                <Star key={i} className="w-3 h-3 fill-current text-amber-400" />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            ) : (
+              /* 🖥️ DESKTOP VIEW: Clean 3-Column Inline Row (No messy vertical column gaps) */
+              <div className="grid grid-cols-3 gap-6">
+                {reviews.map((review) => {
+                  const isDarkBlock = review.theme === 'brand-purple' || review.theme === 'galaxy-dark';
+                  return (
+                    <div
+                      key={review.id}
+                      className={`rounded-[28px] p-8 flex flex-col justify-between relative overflow-hidden group transition-all hover:-translate-y-1.5 duration-300 min-h-[280px] ${getBlockStyles(review.theme)}`}
+                    >
+                      {review.theme === 'aesthetic-light' && (
+                        <>
+                          <div className="absolute top-0 left-0 w-28 h-28 bg-purple-300/40 rounded-full blur-2xl pointer-events-none" />
+                          <div className="absolute bottom-2 left-3 w-16 h-16 opacity-[0.25] text-purple-600 pointer-events-none transform rotate-45">
+                            <svg viewBox="0 0 100 100" fill="currentColor"><path d="M30,90 C45,70 40,40 60,30 C70,25 85,35 80,15 C75,-5 50,5 40,15 C25,30 15,60 30,90 Z" /></svg>
+                          </div>
+                        </>
+                      )}
+                      {review.theme === 'galaxy-dark' && (
+                        <>
+                          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-600/30 via-transparent to-transparent pointer-events-none" />
+                          <div className="absolute top-6 right-10 text-purple-300 text-sm animate-pulse">✦</div>
+                        </>
+                      )}
+
+                      <div>
+                        <div className="flex justify-between items-center mb-4">
+                          <span className={`font-display text-5xl select-none leading-none opacity-20 ${isDarkBlock ? 'text-white' : 'text-primary'}`}>“</span>
+                        </div>
+                        <p className={`text-sm leading-relaxed mb-6 line-clamp-4 ${isDarkBlock ? 'text-slate-100 font-light' : 'text-slate-800 font-medium'}`}>
+                          {review.text}
+                        </p>
+                      </div>
+
+                      <div className="mt-auto">
+                        <div className={`w-full h-[1px] mb-4 ${isDarkBlock ? 'bg-white/10' : 'bg-purple-200/60'}`} />
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-bold text-sm">{review.name}</h4>
+                            <p className={`text-[11px] font-semibold mt-0.5 ${isDarkBlock ? 'text-purple-200' : 'text-primary'}`}>{review.handle}</p>
+                          </div>
+                          <div className="flex gap-0.5">
+                            {Array.from({ length: review.rating }).map((_, i) => (
+                              <Star key={i} className="w-4 h-4 fill-current text-amber-400" />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* 🛠️ NAVIGATION DOTS TRACKER */}
+            {isMobile && (
+              <div className="flex justify-center items-center gap-2 mt-4">
+                {reviews.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleDotClick(index)}
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      index === activeIndex ? 'w-6 bg-primary' : 'w-2 bg-purple-200'
+                    }`}
+                    aria-label={`Go to slide ${index + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+
+          </div>
+        ) : (
+          <div className="text-center py-12 text-slate-400 bg-white rounded-[32px] border border-slate-100">
+            No reviews published yet.
+          </div>
+        )}
+
+        {/* 🔗 REDIRECT CTA BUTTON ROW */}
+        <div className="mt-12 text-center flex flex-col sm:flex-row justify-center items-center gap-4">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-white text-slate-900 border-2 border-slate-200 hover:bg-slate-50 transition-all px-8 py-4 rounded-full text-sm font-bold shadow-sm active:scale-95 transform"
+          >
+            <MessageSquarePlus className="w-4 h-4" />
+            Write a Review
+          </button>
+
+          <Link
+            to="/reviews"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-primary text-white hover:bg-primary/90 transition-all px-8 py-4 rounded-full text-sm font-bold shadow-xl shadow-primary/20 active:scale-95 transform group"
+          >
+            See All Reviews
+            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+          </Link>
         </div>
 
+        <ReviewModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchReviews} />
       </div>
     </section>
   );

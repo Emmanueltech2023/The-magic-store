@@ -19,7 +19,7 @@ export const Navbar = ({ isBannerActive = false }: { isBannerActive?: boolean })
   const categories = [
     'K-Drinks', 'K-Foods', 'K-Snacks', 'Cookies', 
     'Bags & Holders', 'Plushies', 'Clothing', 'Accessories', 
-    'Stationery', 'Cups & Bottles'
+    'Stationery & Decor', 'Collectibles', 'Cups & Bottles', 'Chopsticks', 'Merch Gift & Boxes',
   ];
 
   // Desktop animation variants
@@ -34,7 +34,7 @@ export const Navbar = ({ isBannerActive = false }: { isBannerActive?: boolean })
   };
 
   return (
- <nav className="w-full glass border-b border-white/20">
+    <nav className="w-full glass border-b border-white/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-20 items-center">
           
@@ -92,6 +92,14 @@ export const Navbar = ({ isBannerActive = false }: { isBannerActive?: boolean })
 
             <Link to="/shop" className={`text-xs font-bold uppercase tracking-[0.2em] transition-colors ${location.pathname === '/shop' ? 'text-primary' : 'text-text-muted hover:text-primary'}`}>
               Shop All
+            </Link>
+
+            {/* ✨ DESKTOP REVIEWS LINK */}
+            <Link 
+              to="/reviews" 
+              className={`text-xs font-bold uppercase tracking-[0.2em] transition-colors ${location.pathname === '/reviews' ? 'text-primary' : 'text-text-muted hover:text-primary'}`}
+            >
+              Reviews
             </Link>
 
             {/* DESKTOP WISHLIST ROUTE SHORTCUT BADGE */}
@@ -205,6 +213,15 @@ export const Navbar = ({ isBannerActive = false }: { isBannerActive?: boolean })
                 className={`block text-base font-semibold tracking-wide p-4 rounded-2xl active:scale-95 transition-all ${location.pathname === '/shop' ? 'bg-primary/10 text-primary' : 'bg-secondary/5 text-text-muted'}`}
               >
                 Shop All
+              </Link>
+
+              {/* ✨ MOBILE REVIEWS LINK */}
+              <Link 
+                to="/reviews" 
+                onClick={() => setIsOpen(false)} 
+                className={`block text-base font-semibold tracking-wide p-4 rounded-2xl active:scale-95 transition-all ${location.pathname === '/reviews' ? 'bg-primary/10 text-primary' : 'bg-secondary/5 text-text-muted'}`}
+              >
+                Reviews
               </Link>
 
               {/* MOBILE ACCORDION: Dedicated Wishlist Vault Redirection Row */}

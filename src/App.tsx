@@ -17,6 +17,7 @@ import ReturnsRefunds from './pages/ReturnsRefunds';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import FAQs from './pages/FAQs';
 import { Favorites } from './pages/Favorites'; 
+import { ReviewsPage } from './pages/ReviewsPage';
 import { supabase } from './lib/supabase'; // Core data client connection
 import { Clock } from 'lucide-react'; // Visual countdown anchor icon
 
@@ -137,6 +138,7 @@ export default function App() {
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/favorites" element={<Favorites />} />
           <Route path="/cart" element={<Cart />} />
+          <Route path="/reviews" element={<ReviewsPage />} />
           <Route path="/shipping-policy" element={<ShippingPolicy />} />
           <Route path="/returns-refunds" element={<ReturnsRefunds />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
