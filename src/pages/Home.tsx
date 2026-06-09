@@ -162,7 +162,7 @@ export const Home = () => {
         { id: 'cat2', name: 'K-Foods', image: 'https://images.unsplash.com/photo-1552611052-33e04de081de', count: 32 },
         { id: 'cat3', name: 'BTS Merch', image: 'https://ik.imagekit.io/pha2ibrpir/bts_vz9B62d-W.jpg', count: 95 },
         { id: 'cat4', name: 'Accessories', image: 'https://ik.imagekit.io/pha2ibrpir/album_Qikwi4Zut.jpg', count: 48 },
-        { id: 'cat5', name: 'K-Beauty', image: 'https://images.unsplash.com/photo-1596462502278-27bfdc4033c8', count: 24 },
+        { id: 'cat5', name: 'Plushies & Collectibles', image: 'https://ik.imagekit.io/pha2ibrpir/IMG-20260602-WA0015_ZCJWrdbzt.jpg?updatedAt=1780532468217', count: 24 },
         { id: 'cat6', name: 'Stationery', image: 'https://images.unsplash.com/photo-1516962080544-eac695c93791', count: 15 },
       ]);
     };

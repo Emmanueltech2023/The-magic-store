@@ -55,7 +55,7 @@ export const Hero = () => {
             
             <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto justify-center lg:justify-start">
               <Link 
-                to="/shop?category=stationery" 
+                to="/shop?category=plushies" 
                 className="bg-primary text-white px-10 py-4 rounded-full font-bold text-sm hover:scale-105 shadow-xl shadow-primary/20 transition-all text-center active:scale-95 whitespace-nowrap"
               >
                 Shop BTS Collection

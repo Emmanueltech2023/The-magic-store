@@ -13,5 +13,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(
   supabaseUrl || "",
-  supabaseAnonKey || ""
+  supabaseAnonKey || "",
+  {
+    auth: {
+      storage: window.sessionStorage, // 🔐 Destroys session automatically when tab is closed
+      autoRefreshToken: true,
+      persistSession: true
+    }
+  }
 );
