@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Star, MessageSquarePlus, SlidersHorizontal, ArrowLeft } from 'lucide-react';
+import { Star, MessageSquarePlus, SlidersHorizontal, ArrowLeft, Eye } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Skeleton } from '../components/Skeleton';
 import { ReviewModal } from '../components/ReviewModal';
@@ -222,11 +222,42 @@ export const ReviewsPage = () => {
                       <span className={`font-display text-5xl select-none leading-none opacity-20 ${isDarkBlock ? 'text-white' : 'text-primary'}`}>“</span>
                       <div className={isDarkBlock ? 'text-white/30 text-xs' : 'text-primary/40 text-xs'}>✦</div>
                     </div>
-                    <p className={`text-sm leading-relaxed mb-6 tracking-wide ${
+                    <p className={`text-sm leading-relaxed mb-5 tracking-wide ${
                       review.theme === 'brand-purple' ? 'text-white font-light' : review.theme === 'galaxy-dark' ? 'text-slate-100 font-light' : 'text-slate-800 font-medium'
                     }`}>
                       {review.text}
                     </p>
+
+                    {/* 📸 COGNITIVE UPGRADE: 3X LARGER HIGH-VISIBILITY MEDIA DISPLAY GRID */}
+                    {review.images && review.images.length > 0 && (
+                      <div className="mb-6">
+                        <span className={`text-[10px] font-bold uppercase tracking-widest block mb-2 opacity-50 ${isDarkBlock ? 'text-purple-200' : 'text-slate-400'}`}>
+                          Customer Unboxing Haul
+                        </span>
+                        <div className={`grid gap-2 ${review.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3'}`}>
+                          {review.images.map((imgUrl: string, imgIdx: number) => (
+                            <div 
+                              key={imgIdx}
+                              onClick={() => window.open(imgUrl, '_blank')}
+                              className={`relative aspect-[4/3] w-full rounded-xl overflow-hidden cursor-zoom-in group/img border shadow-sm transition-all duration-300 ${
+                                isDarkBlock ? 'border-white/10 bg-slate-800/40' : 'border-purple-100 bg-slate-50'
+                              }`}
+                            >
+                              <img
+                                src={imgUrl} 
+                                alt={`Review verification proof ${imgIdx + 1}`}
+                                className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover/img:scale-105"
+                                loading="lazy"
+                              />
+                              {/* Overlay indicator */}
+                              <div className="absolute inset-0 bg-black/10 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                <Eye className="w-4 h-4 text-white drop-shadow-sm" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-auto">

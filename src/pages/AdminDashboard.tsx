@@ -1506,24 +1506,32 @@ export const AdminReviews = () => {
   });
 
   if (loading) {
-    return <div className="p-8 text-sm text-slate-500">Loading master reviews panel grid...</div>;
+    return (
+      <div className="p-8 max-w-6xl mx-auto space-y-4">
+        <div className="h-8 w-64 bg-slate-200 rounded-lg animate-pulse" />
+        <div className="h-4 w-96 bg-slate-100 rounded-lg animate-pulse mb-8" />
+        <div className="h-64 w-full bg-slate-50 rounded-2xl animate-pulse" />
+      </div>
+    );
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto bg-slate-50/50 min-h-screen">
+      
+      {/* Dashboard Top Heading Panels */}
+      <div className="mb-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Manage Customer Reviews</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">Manage Customer Reviews</h1>
           <p className="text-slate-500 text-sm mt-1">
             Approve genuine feedback or instantly delete silly submissions.
           </p>
         </div>
 
-        {/* 🛠️ FILTER TABS CONTROLLER */}
-        <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200/40 self-start md:self-center">
+        {/* 🛠️ RESPONSIVE FILTER TABS CONTROLLER */}
+        <div className="flex bg-slate-200/70 p-1.5 rounded-2xl border border-slate-300/30 overflow-x-auto max-w-full scrollbar-none self-start lg:self-center">
           <button
             onClick={() => setFilterTab('all')}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all whitespace-nowrap ${
               filterTab === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -1531,7 +1539,7 @@ export const AdminReviews = () => {
           </button>
           <button
             onClick={() => setFilterTab('pending')}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap ${
               filterTab === 'pending' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -1539,7 +1547,7 @@ export const AdminReviews = () => {
           </button>
           <button
             onClick={() => setFilterTab('live')}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap ${
               filterTab === 'live' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -1548,82 +1556,174 @@ export const AdminReviews = () => {
         </div>
       </div>
 
-      <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 text-xs font-bold uppercase tracking-wider">
-                <th className="p-4">Customer</th>
-                <th className="p-4">Rating</th>
-                <th className="p-4 w-1/2">Review Message</th>
-                <th className="p-4">Status</th>
-                <th className="p-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-sm">
-              {filteredReviews.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-400">
-                    No reviews fit this filter right now.
-                  </td>
-                </tr>
-              ) : (
-                filteredReviews.map((review) => (
-                  <tr key={review.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="p-4">
-                      <div className="font-semibold text-slate-900">{review.name}</div>
-                      <div className="text-xs text-slate-400">{review.handle || 'No social handle'}</div>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex gap-0.5 text-amber-400">
-                        {Array.from({ length: review.rating }).map((_, i) => (
-                          <Star key={i} className="w-3.5 h-3.5 fill-current" />
-                        ))}
-                      </div>
-                    </td>
-                    <td className="p-4 text-slate-600 leading-relaxed text-xs">
-                      {review.text}
-                    </td>
-                    <td className="p-4">
-                      {review.is_approved ? (
-                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-xs px-2.5 py-1 rounded-full font-medium">
-                          <CheckCircle className="w-3.5 h-3.5" /> Live on Site
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-700 text-xs px-2.5 py-1 rounded-full font-medium">
-                          <ShieldAlert className="w-3.5 h-3.5" /> Blocked / Pending
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => handleToggleApproval(review.id, review.is_approved)}
-                          className={`p-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-1 ${
-                            review.is_approved 
-                              ? 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50' 
-                              : 'bg-primary text-white border-primary hover:bg-primary/95 shadow-md shadow-primary/5'
-                          }`}
-                        >
-                          {review.is_approved ? 'Hide from Site' : 'Approve & Publish'}
-                        </button>
-                        
-                        <button
-                          onClick={() => handleDeleteReview(review.id)}
-                          className="p-2 border border-slate-100 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
-                          title="Delete Review permanently"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      {/* Main Structural Layout Viewport Wrapper */}
+      {filteredReviews.length === 0 ? (
+        <div className="text-center py-16 px-4 text-slate-400 bg-white rounded-2xl border border-slate-200/60 shadow-sm">
+          No reviews fit this filter right now.
         </div>
-      </div>
+      ) : (
+        <>
+          {/* 📱 MOBILE VIEW CARD LAYOUT: Hidden on medium screens up (`md:hidden`) */}
+          <div className="grid grid-cols-1 gap-4 md:hidden">
+            {filteredReviews.map((review) => (
+              <div key={review.id} className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-sm flex flex-col gap-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="font-bold text-slate-900">{review.name}</div>
+                    <div className="text-xs text-slate-400">{review.handle || '@user'}</div>
+                  </div>
+                  {review.is_approved ? (
+                    <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-[11px] px-2.5 py-1 rounded-full font-semibold">
+                      <CheckCircle className="w-3 h-3" /> Live
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-700 text-[11px] px-2.5 py-1 rounded-full font-semibold">
+                      <ShieldAlert className="w-3 h-3" /> Pending
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex gap-0.5 text-amber-400">
+                  {Array.from({ length: review.rating }).map((_, i) => (
+                    <Star key={i} className="w-3.5 h-3.5 fill-current" />
+                  ))}
+                </div>
+
+                <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl leading-relaxed">
+                  {review.text}
+                </p>
+
+                {/* 📸 Image Verification Attachment Previews for Mobile */}
+                {review.images && review.images.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {review.images.map((img: string, idx: number) => (
+                      <img
+                        key={idx}
+                        src={`${img}?tr=w-100,h-100,fo-auto`}
+                        alt="attachment proof"
+                        className="w-12 h-12 rounded-lg object-cover border border-slate-200 cursor-pointer flex-shrink-0"
+                        onClick={() => window.open(img, '_blank')}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Mobile Button Actions Strip Layout */}
+                <div className="flex gap-2 pt-2 border-t border-slate-100 mt-auto">
+                  <button
+                    onClick={() => handleToggleApproval(review.id, review.is_approved)}
+                    className={`flex-1 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      review.is_approved 
+                        ? 'bg-white border-slate-200 text-slate-600' 
+                        : 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                    }`}
+                  >
+                    {review.is_approved ? (
+                      <><EyeOff className="w-3.5 h-3.5" /> Hide</>
+                    ) : (
+                      <><Eye className="w-3.5 h-3.5" /> Approve & Publish</>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleDeleteReview(review.id)}
+                    className="p-2.5 border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 🖥️ DESKTOP MASTER DATA VIEW TABLE: Hidden on small devices (`hidden md:block`) */}
+          <div className="hidden md:block bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200/60 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                    <th className="p-4 whitespace-nowrap">Customer</th>
+                    <th className="p-4 whitespace-nowrap">Rating</th>
+                    <th className="p-4 w-[45%]">Review Message</th>
+                    <th className="p-4 whitespace-nowrap">Status</th>
+                    <th className="p-4 text-right whitespace-nowrap">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {filteredReviews.map((review) => (
+                    <tr key={review.id} className="hover:bg-slate-50/40 transition-colors">
+                      <td className="p-4">
+                        <div className="font-semibold text-slate-900 whitespace-nowrap">{review.name}</div>
+                        <div className="text-xs text-slate-400 whitespace-nowrap">{review.handle || 'No social handle'}</div>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex gap-0.5 text-amber-400">
+                          {Array.from({ length: review.rating }).map((_, i) => (
+                            <Star key={i} className="w-3.5 h-3.5 fill-current" />
+                          ))}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex flex-col gap-2">
+                          <p className="text-slate-600 leading-relaxed text-xs">
+                            {review.text}
+                          </p>
+                          {/* 📸 Image Verification Attachment Previews for Desktop */}
+                          {review.images && review.images.length > 0 && (
+                            <div className="flex gap-1.5 mt-1">
+                              {review.images.map((img: string, idx: number) => (
+                                <img
+                                  key={idx}
+                                  src={`${img}?tr=w-80,h-80,fo-auto`}
+                                  alt="attachment review crop"
+                                  className="w-10 h-10 rounded-lg object-cover border border-slate-200 hover:scale-105 transition-transform cursor-pointer"
+                                  onClick={() => window.open(img, '_blank')}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        {review.is_approved ? (
+                          <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap">
+                            <CheckCircle className="w-3.5 h-3.5" /> Live on Site
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-700 text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap">
+                            <ShieldAlert className="w-3.5 h-3.5" /> Blocked / Pending
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-4 text-right">
+                        <div className="flex justify-end items-center gap-2">
+                          <button
+                            onClick={() => handleToggleApproval(review.id, review.is_approved)}
+                            className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap ${
+                              review.is_approved 
+                                ? 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50' 
+                                : 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800 shadow-sm'
+                            }`}
+                          >
+                            {review.is_approved ? 'Hide from Site' : 'Approve & Publish'}
+                          </button>
+                          
+                          <button
+                            onClick={() => handleDeleteReview(review.id)}
+                            className="p-2 border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors flex-shrink-0"
+                            title="Delete Review permanently"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

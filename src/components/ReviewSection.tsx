@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, MessageSquarePlus, ArrowRight } from 'lucide-react';
+import { Star, MessageSquarePlus, ArrowRight, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Skeleton } from './Skeleton'; // Adjust to "../components/Skeleton" if needed
@@ -14,6 +14,30 @@ export const ReviewSection = () => {
   const [isMobile, setIsMobile] = useState(false);
   
   const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Helper function to format creation dates into readable relative time (e.g., "3 days ago")
+  const getRelativeTime = (dateString: string) => {
+    if (!dateString) return '';
+    const now = new Date();
+    const postDate = new Date(dateString);
+    const diffInSeconds = Math.floor((now.getTime() - postDate.getTime()) / 1000);
+
+    if (diffInSeconds < 60) return 'Just now';
+    
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 30) return `${diffInDays}d ago`;
+    
+    const diffInMonths = Math.floor(diffInDays / 30);
+    if (diffInMonths < 12) return `${diffInMonths}mo ago`;
+    
+    return `${Math.floor(diffInMonths / 12)}y ago`;
+  };
 
   // Sync window size for mobile layouts
   useEffect(() => {
@@ -33,7 +57,7 @@ export const ReviewSection = () => {
         .select('*')
         .eq('is_approved', true)
         .order('created_at', { ascending: false })
-        .limit(3); // ⚡ Reduced to 3 to keep the homepage incredibly fast
+        .limit(3); // ⚡ Keeping home fast
 
       if (error) throw error;
       if (data) {
@@ -99,20 +123,20 @@ export const ReviewSection = () => {
   };
 
   return (
-    <section className="py-16 md:py-24 bg-[#f5f3fa] overflow-hidden">
+    <section className="py-12 md:py-24 bg-[#f5f3fa] overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Header */}
-        <div className="text-center max-w-xl mx-auto mb-12">
+        <div className="text-center max-w-xl mx-auto mb-10 md:mb-12">
           <span className="text-xs font-bold text-primary uppercase tracking-widest bg-primary/10 px-4 py-1.5 rounded-full">
             Community Love
           </span>
-          <h2 className="text-3xl md:text-5xl font-display font-bold text-slate-900 mt-4 mb-4">
+          <h2 className="text-3xl md:text-5xl font-display font-bold text-slate-900 mt-4 mb-3 md:mb-4">
             The Magic Circle Speaks
           </h2>
-          <p className="text-slate-500 text-sm md:text-base">
+          <h3 className="text-slate-500 text-sm md:text-base font-normal px-2">
             See what our community members are saying about their unboxing experiences and favorite finds.
-          </p>
+          </h3>
         </div>
 
         {/* Content Section */}
@@ -130,7 +154,7 @@ export const ReviewSection = () => {
             
             {/* 📱 MOBILE VIEW: Swipeable Deck Carousel */}
             {isMobile ? (
-              <div className="relative h-[310px] w-full flex items-center justify-center overflow-hidden touch-pan-y px-4">
+              <div className="relative h-[410px] w-full flex items-center justify-center overflow-hidden touch-pan-y">
                 <AnimatePresence mode="wait">
                   {reviews.map((review, idx) => {
                     if (idx !== activeIndex) return null;
@@ -141,13 +165,13 @@ export const ReviewSection = () => {
                         key={review.id}
                         drag="x"
                         dragConstraints={{ left: 0, right: 0 }}
-                        dragElastic={0.7}
+                        dragElastic={0.6}
                         onDragEnd={handleDragEnd}
-                        initial={{ opacity: 0, x: 120 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -120 }}
-                        transition={{ type: "spring", stiffness: 320, damping: 28 }}
-                        className={`w-full max-w-[340px] rounded-[28px] p-7 flex flex-col justify-between absolute overflow-hidden min-h-[260px] active:cursor-grabbing cursor-grab select-none ${getBlockStyles(review.theme)}`}
+                        initial={{ opacity: 0, scale: 0.95, x: 80 }}
+                        animate={{ opacity: 1, scale: 1, x: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, x: -80 }}
+                        transition={{ type: "spring", stiffness: 360, damping: 30 }}
+                        className={`w-[calc(100vw-32px)] max-w-[350px] rounded-[30px] p-6 flex flex-col justify-between absolute overflow-hidden min-h-[375px] shadow-xl active:cursor-grabbing cursor-grab select-none ${getBlockStyles(review.theme)}`}
                       >
                         {/* Decorative Assets */}
                         {review.theme === 'aesthetic-light' && (
@@ -166,20 +190,74 @@ export const ReviewSection = () => {
                         )}
 
                         <div>
-                          <div className="flex justify-between items-center mb-3">
+                          <div className="flex justify-between items-center mb-1">
                             <span className={`font-display text-4xl select-none leading-none opacity-20 ${isDarkBlock ? 'text-white' : 'text-primary'}`}>“</span>
                           </div>
-                          <p className={`text-xs leading-relaxed mb-4 line-clamp-4 ${isDarkBlock ? 'text-slate-100 font-light' : 'text-slate-800 font-medium'}`}>
+                          <p className={`text-xs leading-relaxed line-clamp-3 mb-3 ${isDarkBlock ? 'text-slate-100 font-light' : 'text-slate-800 font-medium'}`}>
                             {review.text}
                           </p>
+
+                          {/* 📸 SMART RESPONSIVE MOBILE MULTI-IMAGE CAROUSEL TRACK */}
+                          {review.images && review.images.length > 0 && (
+                            <div className="pointer-events-auto mt-2">
+                              {review.images.length === 1 ? (
+                                <div
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(review.images[0], '_blank');
+                                  }}
+                                  className={`relative aspect-[16/9] w-full rounded-xl overflow-hidden cursor-zoom-in border shadow-sm ${
+                                    isDarkBlock ? 'border-white/10 bg-slate-800/40' : 'border-purple-100 bg-slate-50'
+                                  }`}
+                                >
+                                  <img
+                                    src={review.images[0]}
+                                    alt="Customer verified verification snapshot"
+                                    className="w-full h-full object-cover"
+                                    loading="lazy"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="flex gap-2.5 overflow-x-auto pb-1.5 pt-0.5 scrollbar-none snap-x snap-mandatory">
+                                  {review.images.map((imgUrl: string, index: number) => (
+                                    <div
+                                      key={index}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        window.open(imgUrl, '_blank');
+                                      }}
+                                      className={`relative aspect-[4/3] w-28 rounded-xl overflow-hidden cursor-zoom-in border shadow-sm snap-start flex-shrink-0 ${
+                                        isDarkBlock ? 'border-white/10 bg-slate-800/40' : 'border-purple-100 bg-slate-50'
+                                      }`}
+                                    >
+                                      <img
+                                        src={imgUrl}
+                                        alt={`Verification asset proof window thumbnail ${index + 1}`}
+                                        className="w-full h-full object-cover"
+                                        loading="lazy"
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
 
-                        <div className="mt-auto">
+                        <div className="mt-4">
                           <div className={`w-full h-[1px] mb-3 ${isDarkBlock ? 'bg-white/10' : 'bg-purple-200/60'}`} />
                           <div className="flex items-center justify-between">
                             <div>
                               <h4 className="font-bold text-xs tracking-wide">{review.name}</h4>
-                              <p className={`text-[10px] mt-0.5 ${isDarkBlock ? 'text-purple-200' : 'text-primary'}`}>{review.handle || '@user'}</p>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <p className={`text-[10px] font-medium opacity-80 ${isDarkBlock ? 'text-purple-200' : 'text-primary'}`}>
+                                  {review.handle || '@user'}
+                                </p>
+                                <span className={`text-[9px] opacity-40 ${isDarkBlock ? 'text-white' : 'text-slate-500'}`}>•</span>
+                                <span className={`text-[10px] opacity-60 ${isDarkBlock ? 'text-purple-200/90' : 'text-slate-400'}`}>
+                                  {getRelativeTime(review.created_at)}
+                                </span>
+                              </div>
                             </div>
                             <div className="flex gap-0.5">
                               {Array.from({ length: review.rating }).map((_, i) => (
@@ -194,14 +272,14 @@ export const ReviewSection = () => {
                 </AnimatePresence>
               </div>
             ) : (
-              /* 🖥️ DESKTOP VIEW: Clean 3-Column Inline Row (No messy vertical column gaps) */
+              /* 🖥️ DESKTOP VIEW */
               <div className="grid grid-cols-3 gap-6">
                 {reviews.map((review) => {
                   const isDarkBlock = review.theme === 'brand-purple' || review.theme === 'galaxy-dark';
                   return (
                     <div
                       key={review.id}
-                      className={`rounded-[28px] p-8 flex flex-col justify-between relative overflow-hidden group transition-all hover:-translate-y-1.5 duration-300 min-h-[280px] ${getBlockStyles(review.theme)}`}
+                      className={`rounded-[28px] p-8 flex flex-col justify-between relative overflow-hidden group transition-all hover:-translate-y-1.5 duration-300 min-h-[380px] ${getBlockStyles(review.theme)}`}
                     >
                       {review.theme === 'aesthetic-light' && (
                         <>
@@ -222,17 +300,50 @@ export const ReviewSection = () => {
                         <div className="flex justify-between items-center mb-4">
                           <span className={`font-display text-5xl select-none leading-none opacity-20 ${isDarkBlock ? 'text-white' : 'text-primary'}`}>“</span>
                         </div>
-                        <p className={`text-sm leading-relaxed mb-6 line-clamp-4 ${isDarkBlock ? 'text-slate-100 font-light' : 'text-slate-800 font-medium'}`}>
+                        <p className={`text-sm leading-relaxed line-clamp-4 mb-5 tracking-wide ${isDarkBlock ? 'text-slate-100 font-light' : 'text-slate-800 font-medium'}`}>
                           {review.text}
                         </p>
+
+                        {/* 📸 DESKTOP CUSTOMER IMAGES */}
+                        {review.images && review.images.length > 0 && (
+                          <div className="grid grid-cols-3 gap-2 mt-4">
+                            {review.images.map((imgUrl: string, index: number) => (
+                              <div
+                                key={index}
+                                onClick={() => window.open(imgUrl, '_blank')}
+                                className={`relative aspect-[4/3] w-full rounded-xl overflow-hidden cursor-zoom-in group/img border shadow-sm transition-all duration-300 ${
+                                  isDarkBlock ? 'border-white/10 bg-slate-800/40' : 'border-purple-100 bg-slate-50'
+                                }`}
+                              >
+                                <img
+                                  src={imgUrl}
+                                  alt={`Customer unboxing proof capture ${index + 1}`}
+                                  className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover/img:scale-105"
+                                  loading="lazy"
+                                />
+                                <div className="absolute inset-0 bg-black/10 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                  <Eye className="w-3.5 h-3.5 text-white drop-shadow-sm" />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
-                      <div className="mt-auto">
+                      <div className="mt-6">
                         <div className={`w-full h-[1px] mb-4 ${isDarkBlock ? 'bg-white/10' : 'bg-purple-200/60'}`} />
                         <div className="flex items-center justify-between">
                           <div>
                             <h4 className="font-bold text-sm">{review.name}</h4>
-                            <p className={`text-[11px] font-semibold mt-0.5 ${isDarkBlock ? 'text-purple-200' : 'text-primary'}`}>{review.handle}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className={`text-[11px] font-semibold ${isDarkBlock ? 'text-purple-200' : 'text-primary'}`}>
+                                {review.handle || '@collector'}
+                              </p>
+                              <span className={`text-xs opacity-30 ${isDarkBlock ? 'text-white' : 'text-slate-400'}`}>•</span>
+                              <span className={`text-[11px] opacity-60 ${isDarkBlock ? 'text-purple-300 font-light' : 'text-slate-400 font-normal'}`}>
+                                {getRelativeTime(review.created_at)}
+                              </span>
+                            </div>
                           </div>
                           <div className="flex gap-0.5">
                             {Array.from({ length: review.rating }).map((_, i) => (
@@ -249,13 +360,13 @@ export const ReviewSection = () => {
 
             {/* 🛠️ NAVIGATION DOTS TRACKER */}
             {isMobile && (
-              <div className="flex justify-center items-center gap-2 mt-4">
+              <div className="flex justify-center items-center gap-2 mt-2">
                 {reviews.map((_, index) => (
                   <button
                     key={index}
                     onClick={() => handleDotClick(index)}
-                    className={`h-2 rounded-full transition-all duration-300 ${
-                      index === activeIndex ? 'w-6 bg-primary' : 'w-2 bg-purple-200'
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      index === activeIndex ? 'w-5 bg-primary' : 'w-1.5 bg-purple-200'
                     }`}
                     aria-label={`Go to slide ${index + 1}`}
                   />
@@ -271,7 +382,7 @@ export const ReviewSection = () => {
         )}
 
         {/* 🔗 REDIRECT CTA BUTTON ROW */}
-        <div className="mt-12 text-center flex flex-col sm:flex-row justify-center items-center gap-4">
+        <div className="mt-10 md:mt-12 text-center flex flex-col sm:flex-row justify-center items-center gap-3.5 md:gap-4 px-2">
           <button
             onClick={() => setIsModalOpen(true)}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-white text-slate-900 border-2 border-slate-200 hover:bg-slate-50 transition-all px-8 py-4 rounded-full text-sm font-bold shadow-sm active:scale-95 transform"
