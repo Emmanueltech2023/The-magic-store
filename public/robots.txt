@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Keep Google out of the admin panel
+Disallow: /adminlogin
+Disallow: /admindashboard
+
+# Tell Google where your sitemap lives
+Sitemap: https://themagicstore7.com/sitemap.xml

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Home Page -->
+  <url>
+    <loc>https://themagicstore7.com/</loc>
+    <priority>1.0</priority>
+    <changefreq>daily</changefreq>
+  </url>
+
+  <!-- Shop Page -->
+  <url>
+    <loc>https://themagicstore7.com/shop</loc>
+    <priority>0.9</priority>
+    <changefreq>daily</changefreq>
+  </url>
+
+  <!-- Cart Page -->
+  <url>
+    <loc>https://themagicstore7.com/cart</loc>
+    <priority>0.7</priority>
+    <changefreq>weekly</changefreq>
+  </url>
+
+  <!-- Favorites Page -->
+  <url>
+    <loc>https://themagicstore7.com/favourite</loc>
+    <priority>0.6</priority>
+    <changefreq>weekly</changefreq>
+  </url>
+
+  <!-- FAQ Page -->
+  <url>
+    <loc>https://themagicstore7.com/FAQ</loc>
+    <priority>0.7</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+
+  <!-- Reviews Page -->
+  <url>
+    <loc>https://themagicstore7.com/reviewpage</loc>
+    <priority>0.7</priority>
+    <changefreq>daily</changefreq>
+  </url>
+
+  <!-- Privacy Policy -->
+  <url>
+    <loc>https://themagicstore7.com/privacypolicy</loc>
+    <priority>0.3</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+
+  <!-- Return & Refund Policy -->
+  <url>
+    <loc>https://themagicstore7.com/returnrefund</loc>
+    <priority>0.3</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+
+  <!-- Shipping Policy -->
+  <url>
+    <loc>https://themagicstore7.com/shippingpolicy</loc>
+    <priority>0.3</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+</urlset>
