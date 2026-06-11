@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCartStore } from '../lib/cartStore';
 import { 
@@ -9,14 +9,15 @@ import { formatPrice } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
-// Helper component for copyable fields
-const CopyableField = ({ label, value }: { label: string; value: React.ReactNode }) => {
+const CopyableField = ({ label, value, textToCopy }: { label: string; value: React.ReactNode; textToCopy?: string }) => {
   const [copied, setCopied] = useState(false);
 
   const copyToClipboard = () => {
-    const text = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
-    if (text) {
-      navigator.clipboard.writeText(text);
+    const rawText = textToCopy || (typeof value === 'string' || typeof value === 'number' ? String(value) : '');
+    const cleanText = rawText.trim();
+    
+    if (cleanText) {
+      navigator.clipboard.writeText(cleanText);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -43,29 +44,37 @@ export const Cart = () => {
   const total = getTotal();
   const navigate = useNavigate();
 
-  // --- States ---
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [orderId, setOrderId] = useState<string | null>(null);
-  const [customerName, setCustomerName] = useState('');
+  const [customerName, setCustomerName] = useState(() => {
+    return localStorage.getItem('lf_checkout_name') || '';
+  });
+  const [orderId, setOrderId] = useState<string | null>(() => {
+    return localStorage.getItem('lf_checkout_id');
+  });
+  const [showModal, setShowModal] = useState(() => {
+    return localStorage.getItem('lf_checkout_modal_open') === 'true';
+  });
   
-  // New UI Error Validation States
   const [nameError, setNameError] = useState<string | null>(null);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
 
-  // --- 🌟 FIXED CUSTOM ORDER ANALYSIS ENGINE 🌟 ---
-  // A product selection is truly bespoke ONLY if it has zero base price AND no pricing variants are found
+  // 🌟 NEW: Automatically backs up state changes to hardware storage to survive phone app switching reloads
+  useEffect(() => {
+    localStorage.setItem('lf_checkout_name', customerName);
+    if (orderId) {
+      localStorage.setItem('lf_checkout_id', orderId);
+    } else {
+      localStorage.removeItem('lf_checkout_id');
+    }
+    localStorage.setItem('lf_checkout_modal_open', String(showModal));
+  }, [customerName, orderId, showModal]);
+
   const hasVariants = (item: any) => Array.isArray(item?.variants) && item.variants.length > 0;
-  const customItems = items.filter(item => 
-    (!item.price || item.price <= 0) && !hasVariants(item)
-  );
-  const standardItems = items.filter(item => 
-    (item.price && item.price > 0) || hasVariants(item)
-  );
+  const customItems = items.filter(item => (!item.price || item.price <= 0) && !hasVariants(item));
+  const standardItems = items.filter(item => (item.price && item.price > 0) || hasVariants(item));
   const hasCustomItems = customItems.length > 0;
 
-  // --- Logic 1: Initiate Order / Routing Handlers ---
-  const handleProceedToPayment = async () => {
+  const handleProceedToPayment = () => {
     setNameError(null);
     setSubmissionError(null);
 
@@ -75,21 +84,35 @@ export const Cart = () => {
       return;
     }
 
-    // Check for explicit inventory availability status
     const unavailableItems = items.filter(item => item.is_available === false);
     if (unavailableItems.length > 0) {
       setSubmissionError(`Unavailable items found: ${unavailableItems.map(i => i.name).join(', ')}. Please remove them to proceed.`);
       return;
     }
 
-    // INTERCEPT ACTION: If custom quotes are present, pivot completely to conversational sales desks
     if (hasCustomItems) {
       handleBespokeWhatsAppInquiry();
       return;
     }
 
-    // Regular Retail Order Flow
+    const tempRef = "TX-" + Math.floor(100000 + Math.random() * 900000);
+    setOrderId(tempRef);
+    setShowModal(true); 
+  };
+
+  // Helper to cleanly wipe checkout persistence
+  const purgeCheckoutCache = () => {
+    localStorage.removeItem('lf_checkout_modal_open');
+    localStorage.removeItem('lf_checkout_id');
+    localStorage.removeItem('lf_checkout_name');
+    setOrderId(null);
+    setShowModal(false);
+  };
+
+  const handleFinalWhatsAppRedirect = async () => {
+    setSubmissionError(null);
     setIsProcessing(true);
+
     try {
       const { data, error: orderError } = await supabase
         .from('orders')
@@ -113,34 +136,32 @@ export const Cart = () => {
         console.error("Stock reduction failed, but order was logged:", stockError);
       }
 
-      setOrderId(data.id);
-      setShowModal(true); 
+      const realOrderId = data.id.toUpperCase();
+      const itemSummaries = items.map(item => 
+        `- ${item.quantity}x ${item.name} (${formatPrice(item.price * item.quantity)})`
+      ).join('\n');
+
+      const message = `*✨ NEW ORDER PAYMENT VERIFICATION ✨*\n\n*Order Details:*\n──────────────────\n*ID:* \`${realOrderId}\`\n*Customer:* ${customerName}\n\n*Items Purchased:*\n${itemSummaries}\n\n*Total Amount:* ${formatPrice(total)}\n*Payment Status:* Completed\n──────────────────\n\nI've attached my payment screenshot below for verification. Please confirm receipt!`;
+      
+      const phone = "2349052145715"; 
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+      
+      window.open(whatsappUrl, '_blank');
+      
+      purgeCheckoutCache(); // Wipes persistence only on success
+      navigate('/shop');
+      setTimeout(() => {
+        clearCart();
+        setIsProcessing(false);
+      }, 300);
+
     } catch (err) {
-      console.error("Error creating order:", err);
-      setSubmissionError("Failed to initiate order. Please try again.");
-    } finally {
+      console.error("Error creating order configuration payload:", err);
+      alert("Failed to establish order logs. Please check network connectivity and try again.");
       setIsProcessing(false);
     }
   };
 
-  // --- Logic 2: Standard Retail WhatsApp Redirect ---
-  const handleFinalWhatsAppRedirect = () => {
-    const displayId = orderId?.toUpperCase() || "N/A";
-    const message = `*✨ NEW ORDER PAYMENT VERIFICATION ✨*\n\n*Order Details:*\n──────────────────\n*ID:* \`${displayId}\`\n*Customer:* ${customerName}\n*Total Amount:* ${formatPrice(total)}\n\n*Payment Status:* Completed\n──────────────────\n\nI've attached my payment screenshot below for verification. Please confirm receipt!`;
-    
-    const phone = "2349052145715"; 
-    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-    
-    window.open(whatsappUrl, '_blank');
-    
-    setTimeout(() => {
-      setShowModal(false);
-      clearCart();
-      navigate('/shop');
-    }, 100);
-  };
-
-  // --- 🌟 Logic 3: Bespoke WhatsApp Dynamic Flow 🌟 ---
   const handleBespokeWhatsAppInquiry = () => {
     const itemSummaries = items.map(item => {
       const priceString = item.price && item.price > 0 ? formatPrice(item.price * item.quantity) : 'Custom Quote Needed';
@@ -154,15 +175,13 @@ export const Cart = () => {
     
     window.open(whatsappUrl, '_blank');
     
-    // Clear out cart and navigate away safely since order is manual
+    navigate('/shop');
     setTimeout(() => {
       clearCart();
-      navigate('/shop');
-    }, 100);
+    }, 300);
   };
 
-  // --- Empty Cart Return ---
-  if (items.length === 0) {
+  if (items.length === 0 && !showModal) {
     return (
       <div className="pt-32 pb-20 px-4 min-h-[70vh] flex flex-col items-center justify-center text-center">
         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-24 h-24 bg-secondary/20 rounded-full flex items-center justify-center mb-8">
@@ -179,7 +198,6 @@ export const Cart = () => {
   return (
    <div className="pt-10 pb-20 bg-background/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Breadcrumbs & Title */}
         <div className="flex items-center gap-2 mb-8">
            <Link to="/shop" className="text-text-muted hover:text-primary font-bold text-sm">Shop</Link>
            <span className="text-text-muted text-sm">/</span>
@@ -188,15 +206,15 @@ export const Cart = () => {
         <h1 className="text-4xl font-display font-bold mb-12">Your Selections</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          {/* Cart Items List */}
           <div className="lg:col-span-2 space-y-6">
             <AnimatePresence>
-              {items.map((item) => {
-                // FIXED item context validation evaluation code
+              {items.map((item, index) => {
                 const isItemCustom = (!item.price || item.price <= 0) && !hasVariants(item);
+                const uniqueItemKey = item.id ? `${item.id}-${index}` : index;
+                
                 return (
                   <motion.div 
-                    key={item.id} 
+                    key={uniqueItemKey} 
                     exit={{ opacity: 0, x: -50 }}
                     className={`bg-white rounded-[32px] p-6 flex flex-col sm:flex-row items-center gap-6 soft-shadow relative group border ${
                       item.is_available === false 
@@ -259,13 +277,11 @@ export const Cart = () => {
             </AnimatePresence>
           </div>
 
-          {/* Order Summary Sidebar */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-[40px] p-10 soft-shadow sticky top-32 border border-secondary/10">
               <h2 className="font-display text-2xl font-bold mb-8 flex items-center gap-2">Order Summary <Sparkle className="w-5 h-5 text-primary" /></h2>
               
               <div className="space-y-4 mb-8">
-                {/* Name Input Container */}
                 <div id="customer-name-field" className="space-y-2 mb-6">
                   <label className="text-[13px] font-black uppercase tracking-widest text-text-muted flex justify-between">
                     Your Full Name <span className="text-rose-500 font-bold">*</span>
@@ -285,7 +301,6 @@ export const Cart = () => {
                     }`}
                   />
                   
-                  {/* Inline Name Warning Alert Box */}
                   <AnimatePresence mode="wait">
                     {nameError && (
                       <motion.div 
@@ -313,7 +328,6 @@ export const Cart = () => {
                 </div>
               </div>
 
-              {/* Informative Custom Banner Context */}
               {hasCustomItems && (
                 <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold flex items-start gap-2">
                   <MessageCircle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0 fill-current" />
@@ -321,7 +335,6 @@ export const Cart = () => {
                 </div>
               )}
 
-              {/* Global Submission / Stock Error Feedback Panel */}
               <AnimatePresence>
                 {submissionError && (
                   <motion.div
@@ -338,16 +351,14 @@ export const Cart = () => {
 
               <button 
                 onClick={handleProceedToPayment}
-                disabled={isProcessing || (total <= 0 && !hasCustomItems)}
+                disabled={total <= 0 && !hasCustomItems}
                 className={`w-full text-white py-5 rounded-full font-bold hover:shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 ${
                   hasCustomItems 
                     ? 'bg-[#25D366] hover:shadow-[#25D366]/30' 
                     : 'bg-primary hover:shadow-primary/30'
                 }`}
               >
-                {isProcessing ? (
-                  "Securing Magic..."
-                ) : hasCustomItems ? (
+                {hasCustomItems ? (
                   <>
                     Inquire Custom Quote <MessageCircle className="w-4 h-4 fill-current" />
                   </>
@@ -364,46 +375,42 @@ export const Cart = () => {
         </div>
       </div>
 
-      {/* --- PRODUCTION-LEVEL PAYMENT MODAL --- */}
       <AnimatePresence>
         {showModal && (
-          <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
-            {/* Backdrop */}
+          <div className="fixed inset-0 z-[100] flex items-end md:items-start justify-center p-0 md:p-4 md:pt-24">
+            {/* 🌟 FIXED: Removed onClick container closure entirely. Tab refocus clicks cannot accidentally close this now. */}
             <motion.div 
               initial={{ opacity: 0 }} 
               animate={{ opacity: 1 }} 
               exit={{ opacity: 0 }}
-              onClick={() => setShowModal(false)}
               className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl"
             />
             
-            {/* Modal Container */}
             <motion.div 
               initial={{ y: "100%", opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: "100%", opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="bg-white rounded-t-[40px] md:rounded-[40px] max-w-2xl w-full max-h-[95vh] md:max-h-[90vh] shadow-2xl relative z-10 border border-slate-100 overflow-y-auto no-scrollbar"
+              className="bg-white rounded-t-[40px] md:rounded-[40px] max-w-2xl w-full max-h-[85vh] md:max-h-[90vh] shadow-2xl relative z-10 border border-slate-100 overflow-y-auto no-scrollbar"
             >
               <div className="grid grid-cols-1 md:grid-cols-12 h-full">
                 
-                {/* --- Left Column: Order Review --- */}
                 <div className="md:col-span-5 bg-slate-50 p-6 md:p-10 border-b md:border-b-0 md:border-r border-slate-100">
                   <div className="flex items-center justify-between md:block">
                      <div className="flex items-center gap-3 mb-0 md:mb-8">
                       <ShieldCheck className="w-5 h-5 md:w-6 md:h-6 text-emerald-500" />
                       <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-emerald-600">Verified Payment</span>
                     </div>
-                    <button onClick={() => setShowModal(false)} className="md:hidden p-2 bg-slate-200/50 rounded-full"><X className="w-4 h-4 text-slate-600"/></button>
+                    {/* 🌟 FIXED: Explicit close triggers now handle cache cleaning safely */}
+                    <button disabled={isProcessing} onClick={purgeCheckoutCache} className="md:hidden p-2 bg-slate-200/50 rounded-full disabled:opacity-30"><X className="w-4 h-4 text-slate-600"/></button>
                   </div>
                   
                   <div className="text-center my-6 md:mb-8">
                     <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-1">Total Amount Due</p>
                     <p className="text-3xl md:text-4xl font-black text-slate-950 font-display">{formatPrice(total)}</p>
-                    <p className="text-[10px] md:text-xs text-slate-500 mt-1">Order ID: {orderId?.slice(-6).toUpperCase()}</p>
+                    <p className="text-[10px] md:text-xs text-slate-500 mt-1">Ref ID: {orderId?.toUpperCase()}</p>
                   </div>
 
-                  {/* Item list */}
                   <div className="space-y-4 max-h-32 md:max-h-48 overflow-y-auto pr-2 no-scrollbar border-t border-slate-200/50 pt-6">
                     {standardItems.map(item => (
                       <div key={item.id} className="flex items-center gap-3">
@@ -417,9 +424,9 @@ export const Cart = () => {
                   </div>
                 </div>
 
-                {/* --- Right Column: Bank Details & Action --- */}
                 <div className="md:col-span-7 p-6 md:p-10 relative bg-white">
-                  <button onClick={() => setShowModal(false)} className="hidden md:flex absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"><X className="w-4 h-4"/></button>
+                  {/* 🌟 FIXED: Desktop close button handles cache cleaning cleanly */}
+                  <button disabled={isProcessing} onClick={purgeCheckoutCache} className="hidden md:flex absolute top-6 right-6 p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors disabled:opacity-30"><X className="w-4 h-4"/></button>
                   
                   <div className="mb-6 md:mb-10">
                     <div className="flex items-center gap-2 text-primary font-bold text-[10px] md:text-xs mb-2 md:mb-3 uppercase tracking-widest"><Wallet className="w-4 h-4"/> Secure Checkout</div>
@@ -427,12 +434,12 @@ export const Cart = () => {
                     <p className="text-slate-500 text-xs md:text-sm leading-relaxed">Pay the total to the account below to complete your order.</p>
                   </div>
 
-                  {/* Bank Details "Card" */}
                   <div className="bg-primary p-5 md:p-8 rounded-[24px] md:rounded-[30px] shadow-xl shadow-primary/20 space-y-3 md:space-y-4 mb-6 md:mb-8 text-white relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full translate-x-12 -translate-y-12" />
                     
                     <CopyableField 
                       label="Bank Name" 
+                      textToCopy="OPAY"
                       value={
                         <div className="flex items-center gap-2 inline-flex">
                           <img 
@@ -445,14 +452,14 @@ export const Cart = () => {
                         </div>
                       } 
                     />
-                    <CopyableField label="Account Number" value="614 028 1513 " />
+                    <CopyableField label="Account Number" value="614 028 1513" textToCopy="6140281513" />
                     <CopyableField label="Account Name" value="KHADIJAT ADESOLA AJETUNMOBI" />
                   </div>
 
                   <div className="space-y-3 mb-6 md:mb-8">
                     <div className="flex items-start gap-3 p-3 md:p-4 bg-orange-50 rounded-2xl border border-orange-100 text-orange-800 text-[10px] md:text-xs">
                       <Banknote className="w-4 h-4 text-orange-400 mt-0.5 shrink-0" />
-                      <div><strong>Ref:</strong> Use Order ID <b>{orderId?.slice(-6).toUpperCase()}</b></div>
+                      <div><strong>Ref:</strong> Use Customer Name <b>{customerName.toUpperCase()}</b></div>
                     </div>
                     <div className="flex items-start gap-3 p-3 md:p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-emerald-800 text-[10px] md:text-xs">
                       <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
@@ -462,9 +469,16 @@ export const Cart = () => {
 
                   <button 
                     onClick={handleFinalWhatsAppRedirect}
-                    className="w-full py-4 md:py-5 bg-[#25D366] text-white rounded-full text-sm md:text-base font-bold flex items-center justify-center gap-3 hover:shadow-2xl transition-all active:scale-95 mb-4 md:mb-0"
+                    disabled={isProcessing}
+                    className="w-full py-4 md:py-5 bg-[#25D366] text-white rounded-full text-sm md:text-base font-bold flex items-center justify-center gap-3 hover:shadow-2xl transition-all active:scale-95 mb-4 md:mb-0 disabled:opacity-60"
                   >
-                    Place Order & Send Proof <ArrowRight className="w-4 h-4" />
+                    {isProcessing ? (
+                      "Saving Order Details..."
+                    ) : (
+                      <>
+                        Place Order & Send Proof <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
                   </button>
                 </div>
 

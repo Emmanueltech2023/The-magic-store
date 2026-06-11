@@ -46,6 +46,7 @@ interface Order {
   amount: number; 
   status: 'pending' | 'completed' | 'failed'; 
   is_archived: boolean;
+  items?: any[];
 }
 
 export const AdminDashboard = () => {
@@ -190,8 +191,9 @@ const DashboardHome = () => {
         activeOrders.forEach(o => {
           if (o.product_name) {
             o.product_name.split(',').forEach((name: string) => {
-              const trimmedName = name.trim();
-              if (trimmedName) allProductNames.add(trimmedName);
+              // 🌟 FIXED: Strip out prefix variables like "2x " or "1x " so database lookups match original names
+              const cleanedName = name.trim().replace(/^\d+x\s+/, '');
+              if (cleanedName) allProductNames.add(cleanedName);
             });
           }
         });
@@ -200,7 +202,6 @@ const DashboardHome = () => {
         const lookupMap: Record<string, string> = {};
 
         if (uniqueProductNames.length > 0) {
-          // 🛠️ FIX: Correctly filtered with .in() to ensure your matching lookups load instantly
           const { data: productsData } = await supabase
             .from('products')
             .select('name, images')
@@ -246,9 +247,11 @@ const DashboardHome = () => {
     }
   };
 
+  // 🌟 FIXED: Cleans string values during lookup attempts
   const getProductImage = (name: string): string => {
     if (!name) return '';
-    return productImages[name.trim().toLowerCase()] || '';
+    const cleaned = name.trim().replace(/^\d+x\s+/, '').toLowerCase();
+    return productImages[cleaned] || '';
   };
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" /></div>;
@@ -294,13 +297,15 @@ const DashboardHome = () => {
             </div>
           ) : (
             orders.filter(o => !o.is_archived).map(order => {
-              const subProductNames = order.product_name 
-                ? order.product_name.split(',').map(n => n.trim()).filter(Boolean)
-                : [];
-              
-              const validImages = subProductNames
-                .map(name => getProductImage(name))
-                .filter(Boolean);
+              // 🌟 HYBRID FIX: Prefer exact image mapping from JSON columns directly
+              const orderItems = Array.isArray(order.items) ? order.items : [];
+              let validImages = orderItems.map((item: any) => item.image).filter(Boolean);
+
+              // Legacy string fallback if items list array metadata is absent
+              if (validImages.length === 0 && order.product_name) {
+                const subProductNames = order.product_name.split(',').map(n => n.trim()).filter(Boolean);
+                validImages = subProductNames.map(name => getProductImage(name)).filter(Boolean);
+              }
 
               return (
                 <div 
@@ -339,7 +344,10 @@ const DashboardHome = () => {
 
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                        <p className="font-bold text-slate-900 truncate uppercase tracking-tight group-hover:text-primary transition-colors">{order.customer_name || 'Anonymous'}</p>
+                        {/* 🌟 FIXED: Ensures names don't fail or display blank spacing properties */}
+                        <p className="font-bold text-slate-900 truncate uppercase tracking-tight group-hover:text-primary transition-colors">
+                          {order.customer_name && order.customer_name.trim() ? order.customer_name : 'Anonymous Order'}
+                        </p>
                         <span className="text-[9px] bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-400 font-mono">ID: {order.id.slice(-6).toUpperCase()}</span>
                       </div>
                       <p className="text-xs font-medium text-slate-500 line-clamp-1 mb-1">{order.product_name}</p>
@@ -424,10 +432,12 @@ const DashboardHome = () => {
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Customer Details</span>
                     <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
-                        {selectedOrder.customer_name ? selectedOrder.customer_name.charAt(0).toUpperCase() : 'A'}
+                        {selectedOrder.customer_name && selectedOrder.customer_name.trim() ? selectedOrder.customer_name.charAt(0).toUpperCase() : 'A'}
                       </div>
                       <div>
-                        <p className="font-bold text-slate-800 text-sm">{selectedOrder.customer_name || 'Anonymous Customer'}</p>
+                        <p className="font-bold text-slate-800 text-sm">
+                          {selectedOrder.customer_name && selectedOrder.customer_name.trim() ? selectedOrder.customer_name : 'Anonymous Customer'}
+                        </p>
                         <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
                           <Calendar className="w-3 h-3" />
                           {new Date(selectedOrder.created_at).toLocaleDateString(undefined, { dateStyle: 'medium' })} at {' '}
@@ -441,22 +451,42 @@ const DashboardHome = () => {
                   <div className="space-y-3">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Ordered Products</span>
                     <div className="space-y-2">
-                      {selectedOrder.product_name?.split(',').map((name, i) => {
-                        const trimmedName = name.trim();
-                        const img = getProductImage(trimmedName);
-                        return (
-                          <div key={i} className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
+                      {/* 🌟 FIXED: Render items list directly using explicit JSON structure array values */}
+                      {Array.isArray(selectedOrder.items) && selectedOrder.items.length > 0 ? (
+                        selectedOrder.items.map((item: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
                             <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 shrink-0 flex items-center justify-center">
-                              {img ? (
-                                <img src={img} alt={trimmedName} className="w-full h-full object-cover" />
+                              {item.image ? (
+                                <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                               ) : (
                                 <ImageIcon className="w-4 h-4 text-slate-300" />
                               )}
                             </div>
-                            <p className="text-xs font-bold text-slate-800 flex-1">{trimmedName}</p>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-slate-800 truncate">{item.name}</p>
+                              <p className="text-[10px] text-slate-400 font-bold">Qty: {item.quantity || 1}</p>
+                            </div>
                           </div>
-                        );
-                      })}
+                        ))
+                      ) : (
+                        // Smooth text extraction backup for older entries
+                        selectedOrder.product_name?.split(',').map((name, i) => {
+                          const trimmedName = name.trim();
+                          const img = getProductImage(trimmedName);
+                          return (
+                            <div key={i} className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
+                              <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 shrink-0 flex items-center justify-center">
+                                {img ? (
+                                  <img src={img} alt={trimmedName} className="w-full h-full object-cover" />
+                                ) : (
+                                  <ImageIcon className="w-4 h-4 text-slate-300" />
+                                )}
+                              </div>
+                              <p className="text-xs font-bold text-slate-800 flex-1">{trimmedName}</p>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
 

@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ProductCard } from '../components/ProductCard';
 import { Skeleton } from '../components/Skeleton';
-import { Search, SlidersHorizontal, Sparkle, X, ExternalLink } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion'; // Cleaned package alignment
+import { Search, SlidersHorizontal, Sparkle, X, ExternalLink, Plus } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion'; 
 import { useSearchParams, useOutletContext } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+
+const PRODUCTS_PER_PAGE = 8;
 
 // High-performance cryptographic array shuffler
 const shuffleArray = (array: any[]) => {
@@ -59,6 +61,7 @@ export const Shop = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(PRODUCTS_PER_PAGE);
 
   const categories = [
     'All', 'Plushies', 'Cups & Bottles', 'Accessories', 'Cookies', 
@@ -90,7 +93,6 @@ export const Shop = () => {
             image: p.images?.[0] || 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?q=80&w=600&auto=format&fit=crop'
           }));
 
-          // FIX: Randomize items ONCE during data collection so keystrokes don't re-shuffle layout positions
           const topCategories = ['plushies', 'accessories', 'stationery', 'bags & holders', 'clothing', 'cups & bottles'];
           const premiumPool = mappedProducts.filter(p => topCategories.includes(p.category?.toLowerCase()));
           const foodAndOthersPool = mappedProducts.filter(p => !topCategories.includes(p.category?.toLowerCase()));
@@ -119,7 +121,11 @@ export const Shop = () => {
     }
   }, [categoryFromUrl]);
 
-  // Handle local state updates + URL parameters modification cleanly
+  // Reset pagination depth whenever filters or keywords transform
+  useEffect(() => {
+    setVisibleCount(PRODUCTS_PER_PAGE);
+  }, [activeCategory, searchTerm]);
+
   const handleCategoryChange = (category: string) => {
     setActiveCategory(category);
     if (category === 'All') {
@@ -224,55 +230,83 @@ export const Shop = () => {
               </div>
             ))
           ) : (
-       <AnimatePresence mode="popLayout">
-  {processedProducts.flatMap((product, index) => {
-    const itemKey = `product-${product.id}`;
-    const adKey = `ad-placement-${product.id}-${index}`;
-    
-    const showAdAfter = (index + 1) % 8 === 0 && gridAds.length > 0;
-    const targetAdIndex = Math.floor((index / 8) % gridAds.length);
-    const targetedAd = gridAds[targetAdIndex];
+            <AnimatePresence mode="popLayout">
+              {processedProducts.slice(0, visibleCount).flatMap((product, index) => {
+                const itemKey = `product-${product.id}`;
+                const adKey = `ad-placement-${product.id}-${index}`;
+                
+                const showAdAfter = (index + 1) % 8 === 0 && gridAds.length > 0;
+                const targetAdIndex = Math.floor((index / 8) % gridAds.length);
+                const targetedAd = gridAds[targetAdIndex];
 
-    // 1. Build the product element
-    const productElement = (
-      <motion.div 
-        key={itemKey} // 💡 Key goes directly on the motion component now
-        layout
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.3 }}
-        className="col-span-1"
-      >
-        <ProductCard product={product} flashSale={flashSale} />
-      </motion.div>
-    );
+                const productElement = (
+                  <motion.div 
+                    key={itemKey} 
+                    layout
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.3 }}
+                    className="col-span-1"
+                  >
+                    <ProductCard product={product} flashSale={flashSale} />
+                  </motion.div>
+                );
 
-    // 2. Build the ad element if conditions match
-    if (showAdAfter && targetedAd) {
-      const adElement = (
-        <motion.div
-          key={adKey} // 💡 Key stays on the motion component
-          layout
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          className="col-span-1"
-        >
-          <InGridAdCard ad={targetedAd} />
-        </motion.div>
-      );
-      
-      // Return both as a flat array so they are immediate siblings
-      return [productElement, adElement];
-    }
+                if (showAdAfter && targetedAd) {
+                  const adElement = (
+                    <motion.div
+                      key={adKey} 
+                      layout
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="col-span-1"
+                    >
+                      <InGridAdCard ad={targetedAd} />
+                    </motion.div>
+                  );
+                  
+                  return [productElement, adElement];
+                }
 
-    // Otherwise, just return the product
-    return productElement;
-  })}
-</AnimatePresence>
+                return productElement;
+              })}
+            </AnimatePresence>
           )}
         </div>
+
+        {/* Luxury Load More Pagination Panel */}
+        {!isLoading && processedProducts.length > PRODUCTS_PER_PAGE && (
+          <div className="mt-16 flex flex-col items-center justify-center max-w-xs mx-auto text-center space-y-5">
+            <div className="w-full space-y-2">
+              <p className="text-[10px] text-text-muted font-black uppercase tracking-[0.15em]">
+                Showing {Math.min(visibleCount, processedProducts.length)} of {processedProducts.length} unique pieces
+              </p>
+              <div className="w-full bg-secondary/10 h-[3px] rounded-full overflow-hidden">
+                <div 
+                  className="bg-primary h-full transition-all duration-500 ease-out"
+                  style={{ width: `${(Math.min(visibleCount, processedProducts.length) / processedProducts.length) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            {visibleCount < processedProducts.length ? (
+              <button
+                type="button"
+                onClick={() => setVisibleCount(prev => prev + PRODUCTS_PER_PAGE)}
+                className="px-10 py-4 bg-white border border-secondary/20 hover:border-primary text-slate-900 rounded-full font-bold text-sm tracking-wide shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-95 transition-all duration-300 flex items-center gap-2 group"
+              >
+                Discover More
+                <Plus className="w-4 h-4 text-text-muted group-hover:text-primary transition-colors" />
+              </button>
+            ) : (
+              <p className="text-xs text-text-muted/60 font-semibold italic pt-2 tracking-wide">
+                You've viewed our entire collection ✨
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Dynamic Fallback Empty Feedback Desk */}
         {processedProducts.length === 0 && !isLoading && (

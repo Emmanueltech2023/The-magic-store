@@ -23,37 +23,50 @@ export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
+
+      // 🌟 SAFE: Uses functional state updates to guarantee atomic synchronization
       addItem: (newItem) => {
-        const existing = get().items.find((i) => i.id === newItem.id);
-        if (existing) {
-          set({
-            items: get().items.map((i) =>
-              i.id === newItem.id ? { ...i, quantity: i.quantity + 1 } : i
-            ),
-          });
-        } else {
-          set({ items: [...get().items, { ...newItem, quantity: 1 }] });
-        }
+        set((state) => {
+          const existing = state.items.find((i) => i.id === newItem.id);
+          if (existing) {
+            return {
+              items: state.items.map((i) =>
+                i.id === newItem.id ? { ...i, quantity: i.quantity + 1 } : i
+              ),
+            };
+          }
+          return { items: [...state.items, { ...newItem, quantity: 1 }] };
+        });
       },
+
       removeItem: (id) => {
-        set({ items: get().items.filter((i) => i.id !== id) });
+        set((state) => ({
+          items: state.items.filter((i) => i.id !== id)
+        }));
       },
+
       updateQuantity: (id, delta) => {
-        set({
-          items: get().items
+        set((state) => ({
+          items: state.items
             .map((i) =>
               i.id === id ? { ...i, quantity: Math.max(0, i.quantity + delta) } : i
             )
             .filter((i) => i.quantity > 0),
-        });
+        }));
       },
+
       clearCart: () => set({ items: [] }),
+
       getTotal: () => {
         return get().items.reduce((acc, item) => acc + item.price * item.quantity, 0);
       },
     }),
     {
-      name: "magic-store-cart",
+      // Changed key name to completely clear out any corrupted/old browser states
+      name: "magic-store-secured-cart", 
+      
+      // 🌟 FIXED: Explicitly tells Zustand to ONLY serialize the items array, leaving code actions alone
+      partialize: (state) => ({ items: state.items }), 
     }
   )
 );

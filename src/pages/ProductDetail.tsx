@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useOutletContext } from 'react-router-dom'; // 🌟 Added useOutletContext
 import { motion, AnimatePresence } from 'framer-motion'; 
 
-// Lightweight local substitute for `classnames`
 const cn = (...args: any[]) => {
   return args
     .flatMap((arg) => {
@@ -24,12 +23,18 @@ import { useWishlistStore } from '../lib/wishlistStore';
 
 export const ProductDetail = () => {
   const { id } = useParams();
+  
+  // --- 🌟 CONSUME GLOBAL FLASH SALE ENGINE CONTEXT ---
+  const context = useOutletContext<any>() || {};
+  const flashSale = context.flashSale;
+  const isGlobalEventActive = flashSale?.ad_active === true;
+  const globalDiscountPercent = isGlobalEventActive ? parseInt(flashSale.ad_tag || '0') : 0;
+
   const [product, setProduct] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeImage, setActiveImage] = useState(0);
   const [isAdded, setIsAdded] = useState(false);
   
-  // --- Variant Tracking State ---
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -37,59 +42,67 @@ export const ProductDetail = () => {
   const toggleWishlist = useWishlistStore((state) => state.toggleItem);
   const isFavorited = useWishlistStore((state) => state.isInWishlist(product?.id));
 
-  // Reset product contextual states on ID changes to prevent cross-contamination
- useEffect(() => {
-  setActiveImage(0);
-  setSelectedVariant(null);
-  setIsModalOpen(false);
-  
-  const fetchProduct = async () => {
-    setIsLoading(true);
-    const { data } = await supabase.from('products').select('*').eq('id', id).single();
+  useEffect(() => {
+    setActiveImage(0);
+    setSelectedVariant(null);
+    setIsModalOpen(false);
     
-    if (data) {
-      const variantsList = Array.isArray(data.variants) ? data.variants : [];
-      const hasVariants = variantsList.length > 0;
+    const fetchProduct = async () => {
+      setIsLoading(true);
+      const { data } = await supabase.from('products').select('*').eq('id', id).single();
+      
+      if (data) {
+        const variantsList = Array.isArray(data.variants) ? data.variants : [];
+        const hasVariants = variantsList.length > 0;
 
-      if (hasVariants) {
-        setSelectedVariant(variantsList[0]);
+        if (hasVariants) {
+          setSelectedVariant(variantsList[0]);
+        }
+
+        const dynamicIsNegotiable = data.is_negotiable === true;
+
+        setProduct({
+          ...data,
+          variantsList,
+          hasVariants,
+          isNegotiable: dynamicIsNegotiable,
+          displayDetails: [
+            { label: 'Category', value: data.category },
+            { label: 'Availability', value: data.is_available ? 'In Stock' : 'Out of Stock' },
+            { label: 'Order Type', value: dynamicIsNegotiable ? 'Custom / Bespoke' : 'Standard Delivery' },
+          ]
+        });
       }
+      setIsLoading(false);
+    };
 
-      const hasDiscount = data.original_price && data.original_price > data.price;
-      const discountPercent = hasDiscount 
-        ? Math.round(((data.original_price - data.price) / data.original_price) * 100)
-        : 0;
-
-      // 🛠️ FIXED: Only true if the admin explicitly turned on the Negotiable toggle switch
-      const dynamicIsNegotiable = data.is_negotiable === true;
-
-      setProduct({
-        ...data,
-        variantsList,
-        hasVariants,
-        hasDiscount,
-        discountPercent,
-        isNegotiable: dynamicIsNegotiable,
-        displayDetails: [
-          { label: 'Category', value: data.category },
-          { label: 'Availability', value: data.is_available ? 'In Stock' : 'Out of Stock' },
-          { label: 'Order Type', value: dynamicIsNegotiable ? 'Custom / Bespoke' : 'Standard Delivery' },
-        ]
-      });
-    }
-    setIsLoading(false);
-  };
-
-  fetchProduct();
-}, [id]);
+    fetchProduct();
+  }, [id]);
 
   const isSoldOut = product?.is_available === false;
   const isNegotiable = product?.isNegotiable === true;
 
-  // --- Dynamic Value Fallbacks ---
-  const currentPrice = selectedVariant?.price && Number(selectedVariant.price) > 0 
-    ? selectedVariant.price 
-    : product?.price;
+  // --- 🌟 DYNAMIC PRICING EVALUATION ENGINE ---
+  const getRawBasePrice = () => {
+    if (selectedVariant?.price && Number(selectedVariant.price) > 0) {
+      return Number(selectedVariant.price);
+    }
+    return Number(product?.price || 0);
+  };
+
+  const rawBasePrice = getRawBasePrice();
+  
+  // Calculate final item price after potential global flash sale cuts
+  const currentPrice = isGlobalEventActive && !isNegotiable
+    ? rawBasePrice * (1 - globalDiscountPercent / 100)
+    : rawBasePrice;
+
+  // Dynamically evaluate markdown structures matching ProductCard logic
+  const hasDiscount = !isNegotiable && ((product?.original_price && product.original_price > rawBasePrice) || isGlobalEventActive);
+  
+  const discountPercent = isGlobalEventActive 
+    ? globalDiscountPercent 
+    : (product?.original_price ? Math.round(((product.original_price - rawBasePrice) / product.original_price) * 100) : 0);
     
   const currentDescription = selectedVariant?.description ? selectedVariant.description : product?.description;
   
@@ -101,21 +114,24 @@ export const ProductDetail = () => {
     if (isNegotiable) return 'Price on Request';
 
     if (variantObj && Number(variantObj.price) > 0) {
-      return formatPrice(variantObj.price);
+      const vPrice = Number(variantObj.price);
+      const finalVPrice = isGlobalEventActive ? vPrice * (1 - globalDiscountPercent / 100) : vPrice;
+      return formatPrice(finalVPrice);
     }
     
-    // FIXED: Adjusted from product.variants to product.variantsList to match state initialization
     if (product && Array.isArray(product.variantsList) && product.variantsList.length > 0) {
       const validPrices = product.variantsList
         .map((v: any) => Number(v.price || 0))
         .filter((p: number) => p > 0);
         
       if (validPrices.length > 0) {
-        return `From ${formatPrice(Math.min(...validPrices))}`;
+        const minPrice = Math.min(...validPrices);
+        const finalMinPrice = isGlobalEventActive ? minPrice * (1 - globalDiscountPercent / 100) : minPrice;
+        return `From ${formatPrice(finalMinPrice)}`;
       }
     }
     
-    return product?.price ? formatPrice(product.price) : '₦0';
+    return currentPrice ? formatPrice(currentPrice) : '₦0';
   };
 
   const handleAddToCart = () => {
@@ -124,7 +140,7 @@ export const ProductDetail = () => {
     addItem({
       id: selectedVariant ? `${product.id}-${selectedVariant.id}` : product.id,
       name: selectedVariant ? `${product.name} (${selectedVariant.name})` : product.name,
-      price: currentPrice || 0,
+      price: currentPrice || 0, // 🌟 Fixed: Passes calculation down to the cart store safely!
       image: selectedVariant?.image ? selectedVariant.image : product.images[0],
     });
 
@@ -147,7 +163,7 @@ export const ProductDetail = () => {
       window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
     } else {
       const orderName = selectedVariant ? `${product.name} (${selectedVariant.name})` : product.name;
-      await handleWhatsAppOrder(orderName, currentPrice || 0);
+      await handleWhatsAppOrder(orderName, currentPrice || 0); // 🌟 Fixed: Sends the flash discount price directly to WhatsApp checkout
     }
   };
 
@@ -202,9 +218,9 @@ export const ProductDetail = () => {
                   </span>
                 </div>
               )}
-              {!isSoldOut && product.hasDiscount && !isNegotiable && !product.hasVariants && (
+              {!isSoldOut && hasDiscount && (
                 <div className="absolute top-4 left-4 lg:top-6 lg:left-6 z-10 bg-rose-500 text-white font-black text-xs px-4 py-1.5 rounded-full shadow-lg shadow-rose-500/30 animate-pulse">
-                  -{product.discountPercent}% OFF
+                  -{discountPercent}% OFF
                 </div>
               )}
               <img src={currentImage} alt={product.name} className={cn("w-full h-full object-cover transition-all duration-300", isSoldOut && "grayscale")} />
@@ -239,7 +255,7 @@ export const ProductDetail = () => {
               
               <div className="inline-flex items-center p-4 rounded-3xl bg-white border border-slate-100/70 soft-shadow gap-4 min-w-[260px] md:min-w-[320px]">
                 <div className="flex flex-col">
-                  {product.hasDiscount && !isSoldOut && !isNegotiable && !product.hasVariants && (
+                  {hasDiscount && !isSoldOut && !isNegotiable && (
                     <span className="text-[10px] font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded w-max mb-1 uppercase tracking-wider">
                       Promo Price
                     </span>
@@ -256,25 +272,24 @@ export const ProductDetail = () => {
                     )}>
                       {isSoldOut ? 'Sold Out' : renderDynamicPriceMarkup(selectedVariant)}
                     </p>
-                    {product.hasDiscount && !isSoldOut && !isNegotiable && !product.hasVariants && (
+                    {hasDiscount && !isSoldOut && !isNegotiable && (
                       <span className="text-sm font-semibold text-slate-400 line-through decoration-rose-500 decoration-2">
-                        {formatPrice(product.original_price)}
+                        {formatPrice(isGlobalEventActive ? rawBasePrice : product.original_price)}
                       </span>
                     )}
                   </div>
                 </div>
 
-                {product.hasDiscount && !isSoldOut && !isNegotiable && !product.hasVariants && (
+                {hasDiscount && !isSoldOut && !isNegotiable && (
                   <div className="ml-auto bg-rose-500 text-white font-black text-xs px-3 py-2.5 rounded-2xl shadow-md shadow-rose-500/15 text-center leading-none">
                     <span>SAVE</span>
                     <br />
-                    <span className="text-sm font-black mt-1 inline-block">{product.discountPercent}%</span>
+                    <span className="text-sm font-black mt-1 inline-block">{discountPercent}%</span>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* FIXED: Mapped configuration from product.variants to product.variantsList */}
             {product.variantsList && product.variantsList.length > 0 && (
               <div className="mb-8 space-y-3">
                 <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 ml-1">
@@ -331,7 +346,7 @@ export const ProductDetail = () => {
                                 <HelpCircle className="w-3 h-3" /> Custom Quote
                               </span>
                             ) : (
-                              v.price && Number(v.price) > 0 ? formatPrice(v.price) : '₦0'
+                              renderDynamicPriceMarkup(v)
                             )}
                           </span>
 
@@ -446,7 +461,7 @@ export const ProductDetail = () => {
         </div>
       </div>
 
-      {/* 🌟 Dedicated Variant Preview Modal Layer */}
+      {/* Dedicated Variant Preview Modal Layer */}
       <AnimatePresence>
         {isModalOpen && selectedVariant && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
