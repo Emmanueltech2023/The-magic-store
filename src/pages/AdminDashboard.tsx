@@ -164,34 +164,37 @@ const DashboardHome = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      // 1. Fetch only the columns we actually need for the feed (saves bandwidth)
       const { data: ordersData } = await supabase
         .from('orders')
-        .select('*')
+        .select('id, amount, status, is_archived, product_name, created_at, customer_name, items')
         .order('created_at', { ascending: false });
         
       const { count: productCount } = await supabase
         .from('products')
         .select('*', { count: 'exact', head: true });
-      
-      if (ordersData) {
-        setOrders(ordersData);
-        
-        const totalRev = ordersData
-          .filter(o => o.status === 'completed')
-          .reduce((acc, curr) => acc + curr.amount, 0);
-          
-        const pendingOrders = ordersData
-          .filter(o => o.status === 'pending' && !o.is_archived).length;
-          
-        setCounts({ totalRevenue: totalRev, totalProducts: productCount || 0, pending: pendingOrders });
 
+      // 2. Optimized: Calculate lifetime revenue safely from the fetched completed orders
+      // (For massive scale down the road, an RPC sum or dedicated stats table is best)
+if (ordersData) {
+  setOrders(ordersData);
+  
+  // 🌟 UPDATED: Must be completed AND NOT archived to count as revenue
+  const totalRev = ordersData
+    .filter(o => o.status === 'completed' && !o.is_archived)
+    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    
+  const pendingOrders = ordersData
+    .filter(o => o.status === 'pending' && !o.is_archived).length;
+    
+  setCounts({ totalRevenue: totalRev, totalProducts: productCount || 0, pending: pendingOrders });
+
+        // ... rest of your layout product image mapping logic remains the same ...
         const activeOrders = ordersData.filter(o => !o.is_archived);
         const allProductNames = new Set<string>();
-
         activeOrders.forEach(o => {
           if (o.product_name) {
             o.product_name.split(',').forEach((name: string) => {
-              // 🌟 FIXED: Strip out prefix variables like "2x " or "1x " so database lookups match original names
               const cleanedName = name.trim().replace(/^\d+x\s+/, '');
               if (cleanedName) allProductNames.add(cleanedName);
             });
@@ -557,18 +560,21 @@ const InsightsView = () => {
 
       const startOfWeek = new Date();
       startOfWeek.setDate(now.getDate() - 7);
+      startOfWeek.setHours(0, 0, 0, 0);
 
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      startOfMonth.setHours(0, 0, 0, 0);
 
-      const postgresMonthString = startOfMonth.toISOString().split('T')[0] + ' 00:00:00';
+      // 🌟 FIXED: Find the absolute oldest date boundary between 7 days ago and the 1st of the month
+      const oldestNeededDate = startOfWeek < startOfMonth ? startOfWeek : startOfMonth;
 
       const { data, error } = await supabase
         .from('orders')
         .select('amount, created_at')
         .eq('status', 'completed')
-        .gte('created_at', postgresMonthString);
+        .gte('created_at', oldestNeededDate.toISOString()); // Fetches a comprehensive timeline window
 
-      if (data && data.length > 0) {
+      if (data) {
         let dailyRev = 0, weeklyRev = 0, monthlyRev = 0;
         let dailyCount = 0, weeklyCount = 0, monthlyCount = 0;
 
@@ -576,6 +582,7 @@ const InsightsView = () => {
           const orderDate = new Date(order.created_at);
           const amount = Number(order.amount) || 0;
 
+          // Process metrics using matching runtime date boundaries
           if (orderDate >= startOfMonth) {
             monthlyRev += amount;
             monthlyCount += 1;
@@ -592,30 +599,8 @@ const InsightsView = () => {
 
         setMetrics({ daily: dailyRev, weekly: weeklyRev, monthly: monthlyRev });
         setOrderCounts({ daily: dailyCount, weekly: weeklyCount, monthly: monthlyCount });
-      } else {
-        if (error) console.error("Error fetching insights:", error);
-        
-        const { data: fallbackData } = await supabase
-          .from('orders')
-          .select('amount, created_at')
-          .eq('status', 'completed');
-
-        if (fallbackData) {
-          let dailyRev = 0, weeklyRev = 0, monthlyRev = 0;
-          let dailyCount = 0, weeklyCount = 0, monthlyCount = 0;
-
-          fallbackData.forEach(order => {
-            const orderDate = new Date(order.created_at);
-            const amount = Number(order.amount) || 0;
-
-            if (orderDate >= startOfMonth) { monthlyRev += amount; monthlyCount += 1; }
-            if (orderDate >= startOfWeek) { weeklyRev += amount; weeklyCount += 1; }
-            if (orderDate >= startOfDay) { dailyRev += amount; dailyCount += 1; }
-          });
-
-          setMetrics({ daily: dailyRev, weekly: weeklyRev, monthly: monthlyRev });
-          setOrderCounts({ daily: dailyCount, weekly: weeklyCount, monthly: monthlyCount });
-        }
+      } else if (error) {
+        console.error("Error fetching insights:", error);
       }
       setLoading(false);
     };
@@ -641,34 +626,51 @@ const InsightsView = () => {
         <StatCard label="This Month" value={formatPrice(metrics.monthly)} countLabel={`${orderCounts.monthly} orders`} color="bg-indigo-600" icon={PieChart} />
       </div>
 
+      {/* --- REVENUE COMPARISON GRAPH (WITH CEILING PADDING) --- */}
       <div className="bg-white rounded-[40px] p-8 md:p-10 border border-slate-100 soft-shadow">
         <h3 className="font-bold text-lg text-slate-800 mb-2">Revenue Comparison</h3>
         <p className="text-slate-400 text-xs mb-8">Relative growth metrics across active standard sales windows</p>
         
-        <div className="flex items-end justify-around h-64 gap-6 border-b border-slate-100 pb-4">
-          <div className="flex flex-col items-center w-full max-w-[120px] gap-3 group">
-            <div className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        {/* Graph Canvas Container */}
+        {/* 🌟 FIXED: Changed h-64 to h-72 and added pt-12 to force a safety gap at the top */}
+        <div className="flex items-end justify-around h-72 gap-6 border-b border-slate-100 pb-4 pt-12">
+          
+          {/* DAILY BAR */}
+          <div className="flex flex-col items-center justify-end h-full w-full max-w-[120px] gap-2 group">
+            <div className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
               {formatPrice(metrics.daily)}
             </div>
-            <div style={{ height: getH(metrics.daily) }} className="w-full bg-gradient-to-t from-emerald-500 to-emerald-400 rounded-t-2xl transition-all duration-700 hover:brightness-105 shadow-md shadow-emerald-500/10" />
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Daily</span>
+            <div 
+              style={{ height: getH(metrics.daily) }} 
+              className="w-full bg-gradient-to-t from-emerald-500 to-emerald-400 rounded-t-2xl transition-all duration-700 hover:brightness-105 shadow-md shadow-emerald-500/10 shrink-0" 
+            />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-2">Daily</span>
           </div>
           
-          <div className="flex flex-col items-center w-full max-w-[120px] gap-3 group">
-            <div className="text-[11px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          {/* WEEKLY BAR */}
+          <div className="flex flex-col items-center justify-end h-full w-full max-w-[120px] gap-2 group">
+            <div className="text-[11px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
               {formatPrice(metrics.weekly)}
             </div>
-            <div style={{ height: getH(metrics.weekly) }} className="w-full bg-gradient-to-t from-blue-600 to-blue-500 rounded-t-2xl transition-all duration-700 hover:brightness-105 shadow-md shadow-blue-600/10" />
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Weekly</span>
+            <div 
+              style={{ height: getH(metrics.weekly) }} 
+              className="w-full bg-gradient-to-t from-blue-600 to-blue-500 rounded-t-2xl transition-all duration-700 hover:brightness-105 shadow-md shadow-blue-600/10 shrink-0" 
+            />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-2">Weekly</span>
           </div>
           
-          <div className="flex flex-col items-center w-full max-w-[120px] gap-3 group">
-            <div className="text-[11px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          {/* MONTHLY BAR */}
+          <div className="flex flex-col items-center justify-end h-full w-full max-w-[120px] gap-2 group">
+            <div className="text-[11px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
               {formatPrice(metrics.monthly)}
             </div>
-            <div style={{ height: getH(metrics.monthly) }} className="w-full bg-gradient-to-t from-indigo-600 to-indigo-500 rounded-t-2xl transition-all duration-700 hover:brightness-105 shadow-md shadow-indigo-600/10" />
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Monthly</span>
+            <div 
+              style={{ height: getH(metrics.monthly) }} 
+              className="w-full bg-gradient-to-t from-indigo-600 to-indigo-500 rounded-t-2xl transition-all duration-700 hover:brightness-105 shadow-md shadow-indigo-600/10 shrink-0" 
+            />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-2">Monthly</span>
           </div>
+
         </div>
       </div>
     </div>
